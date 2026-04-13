@@ -17,6 +17,7 @@ public class AnnouncementService {
 
     private final AnnouncementRepository announcementRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public String createAnnouncement(String email, AnnouncementRequest request) {
         User user = userRepository.findByEmail(email)
@@ -28,6 +29,11 @@ public class AnnouncementService {
         announcement.setCreatedBy(user.getFullName());
 
         announcementRepository.save(announcement);
+        notificationService.sendPushNotificationToUser(
+                email,
+                "Announcement Posted",
+                request.getTitle()
+        );
 
         return "Announcement created successfully";
     }
@@ -44,4 +50,27 @@ public class AnnouncementService {
                 ))
                 .toList();
     }
+
+    public String updateAnnouncement(Long id, AnnouncementRequest request) {
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Announcement not found with id: " + id));
+
+        announcement.setTitle(request.getTitle());
+        announcement.setMessage(request.getMessage());
+
+        announcementRepository.save(announcement);
+
+        return "Announcement updated successfully";
+    }
+
+    public String deleteAnnouncement(Long id) {
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Announcement not found with id: " + id));
+
+        announcementRepository.delete(announcement);
+
+        return "Announcement deleted successfully";
+    }
+
+
 }

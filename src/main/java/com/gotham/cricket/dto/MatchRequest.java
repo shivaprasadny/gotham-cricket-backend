@@ -1,5 +1,6 @@
 package com.gotham.cricket.dto;
 
+import com.gotham.cricket.enums.MatchStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -22,4 +23,6 @@ public class MatchRequest {
     private String matchType;
 
     private String notes;
+
+    private MatchStatus status = MatchStatus.UPCOMING;
 }

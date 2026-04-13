@@ -35,4 +35,17 @@ public class MatchController {
     public MatchResponse getMatchById(@PathVariable Long id) {
         return matchService.getMatchById(id);
     }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String updateMatch(@PathVariable Long id,
+                              @Valid @RequestBody MatchRequest request) {
+        return matchService.updateMatch(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String deleteMatch(@PathVariable Long id) {
+        return matchService.deleteMatch(id);
+    }
 }

@@ -20,7 +20,7 @@ public class AnnouncementController {
     private final AnnouncementService announcementService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String createAnnouncement(Authentication authentication,
                                      @Valid @RequestBody AnnouncementRequest request) {
         return announcementService.createAnnouncement(authentication.getName(), request);
@@ -29,5 +29,18 @@ public class AnnouncementController {
     @GetMapping
     public List<AnnouncementResponse> getAllAnnouncements() {
         return announcementService.getAllAnnouncements();
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String updateAnnouncement(@PathVariable Long id,
+                                     @Valid @RequestBody AnnouncementRequest request) {
+        return announcementService.updateAnnouncement(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String deleteAnnouncement(@PathVariable Long id) {
+        return announcementService.deleteAnnouncement(id);
     }
 }

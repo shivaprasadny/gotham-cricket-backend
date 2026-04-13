@@ -1,5 +1,6 @@
 package com.gotham.cricket.entity;
 
+import com.gotham.cricket.enums.MatchStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -35,4 +36,8 @@ public class Match {
 
     @Column(name = "created_by", nullable = false)
     private String createdBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MatchStatus status = MatchStatus.UPCOMING;
 }
