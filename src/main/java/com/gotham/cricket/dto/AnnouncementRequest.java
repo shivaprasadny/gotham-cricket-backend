@@ -11,7 +11,4 @@ public class AnnouncementRequest {
 
     @NotBlank(message = "Message is required")
     private String message;
-
-    @NotBlank(message = "CreatedBy is required")
-    private String createdBy;
 }

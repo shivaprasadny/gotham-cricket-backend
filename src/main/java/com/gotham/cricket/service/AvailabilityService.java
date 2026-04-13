@@ -2,9 +2,11 @@ package com.gotham.cricket.service;
 
 import com.gotham.cricket.dto.AvailabilityRequest;
 import com.gotham.cricket.dto.AvailabilityResponse;
+import com.gotham.cricket.dto.AvailabilitySummaryResponse;
 import com.gotham.cricket.entity.Availability;
 import com.gotham.cricket.entity.Match;
 import com.gotham.cricket.entity.User;
+import com.gotham.cricket.enums.AvailabilityStatus;
 import com.gotham.cricket.repository.AvailabilityRepository;
 import com.gotham.cricket.repository.MatchRepository;
 import com.gotham.cricket.repository.UserRepository;
@@ -21,12 +23,12 @@ public class AvailabilityService {
     private final MatchRepository matchRepository;
     private final UserRepository userRepository;
 
-    public String markAvailability(AvailabilityRequest request) {
+    public String markAvailability(String email, AvailabilityRequest request) {
         Match match = matchRepository.findById(request.getMatchId())
                 .orElseThrow(() -> new RuntimeException("Match not found with id: " + request.getMatchId()));
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + request.getUserId()));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
         Availability availability = availabilityRepository
                 .findByMatchAndUser(match, user)
@@ -57,5 +59,26 @@ public class AvailabilityService {
                         a.getMessage()
                 ))
                 .toList();
+    }
+
+    public AvailabilitySummaryResponse getAvailabilitySummary(Long matchId) {
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
+
+        long availableCount = availabilityRepository.countByMatchAndStatus(match, AvailabilityStatus.AVAILABLE);
+        long maybeCount = availabilityRepository.countByMatchAndStatus(match, AvailabilityStatus.MAYBE);
+        long notAvailableCount = availabilityRepository.countByMatchAndStatus(match, AvailabilityStatus.NOT_AVAILABLE);
+        long injuredCount = availabilityRepository.countByMatchAndStatus(match, AvailabilityStatus.INJURED);
+
+        long totalResponses = availableCount + maybeCount + notAvailableCount + injuredCount;
+
+        return new AvailabilitySummaryResponse(
+                matchId,
+                availableCount,
+                maybeCount,
+                notAvailableCount,
+                injuredCount,
+                totalResponses
+        );
     }
 }

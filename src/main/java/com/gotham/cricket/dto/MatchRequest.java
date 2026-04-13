@@ -22,7 +22,4 @@ public class MatchRequest {
     private String matchType;
 
     private String notes;
-
-    @NotBlank(message = "CreatedBy is required")
-    private String createdBy;
 }

@@ -4,6 +4,7 @@ import com.gotham.cricket.dto.ProfileResponse;
 import com.gotham.cricket.dto.ProfileUpdateRequest;
 import com.gotham.cricket.service.ProfileService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,14 +15,16 @@ public class ProfileController {
 
     private final ProfileService profileService;
 
-    @GetMapping("/{userId}")
-    public ProfileResponse getProfile(@PathVariable Long userId) {
-        return profileService.getProfile(userId);
+    @GetMapping("/me")
+    public ProfileResponse getMyProfile(Authentication authentication) {
+        String email = authentication.getName();
+        return profileService.getMyProfile(email);
     }
 
-    @PutMapping("/{userId}")
-    public String updateProfile(@PathVariable Long userId,
-                                @RequestBody ProfileUpdateRequest request) {
-        return profileService.updateProfile(userId, request);
+    @PutMapping("/me")
+    public String updateMyProfile(Authentication authentication,
+                                  @RequestBody ProfileUpdateRequest request) {
+        String email = authentication.getName();
+        return profileService.updateMyProfile(email, request);
     }
 }

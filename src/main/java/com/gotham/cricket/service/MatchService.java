@@ -3,7 +3,9 @@ package com.gotham.cricket.service;
 import com.gotham.cricket.dto.MatchRequest;
 import com.gotham.cricket.dto.MatchResponse;
 import com.gotham.cricket.entity.Match;
+import com.gotham.cricket.entity.User;
 import com.gotham.cricket.repository.MatchRepository;
+import com.gotham.cricket.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,15 +16,19 @@ import java.util.List;
 public class MatchService {
 
     private final MatchRepository matchRepository;
+    private final UserRepository userRepository;
 
-    public String createMatch(MatchRequest request) {
+    public String createMatch(String email, MatchRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+
         Match match = new Match();
         match.setOpponentName(request.getOpponentName());
         match.setMatchDate(request.getMatchDate());
         match.setVenue(request.getVenue());
         match.setMatchType(request.getMatchType());
         match.setNotes(request.getNotes());
-        match.setCreatedBy(request.getCreatedBy());
+        match.setCreatedBy(user.getFullName());
 
         matchRepository.save(match);
 

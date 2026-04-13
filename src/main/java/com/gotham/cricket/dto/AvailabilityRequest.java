@@ -10,9 +10,6 @@ public class AvailabilityRequest {
     @NotNull(message = "Match id is required")
     private Long matchId;
 
-    @NotNull(message = "User id is required")
-    private Long userId;
-
     @NotNull(message = "Availability status is required")
     private AvailabilityStatus status;
 

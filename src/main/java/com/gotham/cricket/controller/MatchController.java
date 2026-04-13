@@ -5,6 +5,8 @@ import com.gotham.cricket.dto.MatchResponse;
 import com.gotham.cricket.service.MatchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,8 +20,10 @@ public class MatchController {
     private final MatchService matchService;
 
     @PostMapping
-    public String createMatch(@Valid @RequestBody MatchRequest request) {
-        return matchService.createMatch(request);
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String createMatch(Authentication authentication,
+                              @Valid @RequestBody MatchRequest request) {
+        return matchService.createMatch(authentication.getName(), request);
     }
 
     @GetMapping
