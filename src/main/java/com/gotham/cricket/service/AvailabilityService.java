@@ -1,0 +1,61 @@
+package com.gotham.cricket.service;
+
+import com.gotham.cricket.dto.AvailabilityRequest;
+import com.gotham.cricket.dto.AvailabilityResponse;
+import com.gotham.cricket.entity.Availability;
+import com.gotham.cricket.entity.Match;
+import com.gotham.cricket.entity.User;
+import com.gotham.cricket.repository.AvailabilityRepository;
+import com.gotham.cricket.repository.MatchRepository;
+import com.gotham.cricket.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class AvailabilityService {
+
+    private final AvailabilityRepository availabilityRepository;
+    private final MatchRepository matchRepository;
+    private final UserRepository userRepository;
+
+    public String markAvailability(AvailabilityRequest request) {
+        Match match = matchRepository.findById(request.getMatchId())
+                .orElseThrow(() -> new RuntimeException("Match not found with id: " + request.getMatchId()));
+
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + request.getUserId()));
+
+        Availability availability = availabilityRepository
+                .findByMatchAndUser(match, user)
+                .orElse(new Availability());
+
+        availability.setMatch(match);
+        availability.setUser(user);
+        availability.setStatus(request.getStatus());
+        availability.setMessage(request.getMessage());
+
+        availabilityRepository.save(availability);
+
+        return "Availability saved successfully";
+    }
+
+    public List<AvailabilityResponse> getAvailabilityByMatch(Long matchId) {
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
+
+        return availabilityRepository.findByMatch(match)
+                .stream()
+                .map(a -> new AvailabilityResponse(
+                        a.getId(),
+                        a.getMatch().getId(),
+                        a.getUser().getId(),
+                        a.getUser().getFullName(),
+                        a.getStatus(),
+                        a.getMessage()
+                ))
+                .toList();
+    }
+}
