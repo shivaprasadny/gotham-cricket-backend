@@ -21,6 +21,9 @@ public class Team {
 
     private String description;
 
+    @Column(name = "league_name")
+    private String leagueName;
+
     @ManyToOne
     @JoinColumn(name = "captain_id")
     private User captain;

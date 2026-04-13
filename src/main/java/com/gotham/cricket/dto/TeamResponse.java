@@ -9,6 +9,7 @@ public class TeamResponse {
     private Long id;
     private String teamName;
     private String description;
+    private String leagueName;
     private Long captainId;
     private String captainName;
 }

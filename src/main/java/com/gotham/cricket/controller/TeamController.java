@@ -54,4 +54,17 @@ public class TeamController {
     public List<TeamMemberResponse> getTeamMembers(@PathVariable Long teamId) {
         return teamService.getTeamMembers(teamId);
     }
+
+    @PutMapping("/{teamId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String updateTeam(@PathVariable Long teamId,
+                             @Valid @RequestBody TeamRequest request) {
+        return teamService.updateTeam(teamId, request);
+    }
+
+    @DeleteMapping("/{teamId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String deleteTeam(@PathVariable Long teamId) {
+        return teamService.deleteTeam(teamId);
+    }
 }

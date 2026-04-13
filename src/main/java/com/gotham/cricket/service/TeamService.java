@@ -33,10 +33,13 @@ public class TeamService {
         Team team = new Team();
         team.setTeamName(request.getTeamName());
         team.setDescription(request.getDescription());
+        team.setLeagueName(request.getLeagueName());
 
         if (request.getCaptainId() != null) {
             User captain = userRepository.findById(request.getCaptainId())
-                    .orElseThrow(() -> new RuntimeException("Captain not found with id: " + request.getCaptainId()));
+                    .orElseThrow(() -> new RuntimeException(
+                            "Captain not found with id: " + request.getCaptainId()
+                    ));
             team.setCaptain(captain);
         }
 
@@ -51,6 +54,7 @@ public class TeamService {
                         team.getId(),
                         team.getTeamName(),
                         team.getDescription(),
+                        team.getLeagueName(),
                         team.getCaptain() != null ? team.getCaptain().getId() : null,
                         team.getCaptain() != null ? team.getCaptain().getFullName() : null
                 ))
@@ -65,6 +69,7 @@ public class TeamService {
                 team.getId(),
                 team.getTeamName(),
                 team.getDescription(),
+                team.getLeagueName(),
                 team.getCaptain() != null ? team.getCaptain().getId() : null,
                 team.getCaptain() != null ? team.getCaptain().getFullName() : null
         );
@@ -127,5 +132,35 @@ public class TeamService {
                     );
                 })
                 .toList();
+    }
+
+    public String updateTeam(Long teamId, TeamRequest request) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with id: " + teamId));
+
+        team.setTeamName(request.getTeamName());
+        team.setDescription(request.getDescription());
+        team.setLeagueName(request.getLeagueName());
+
+        if (request.getCaptainId() != null) {
+            User captain = userRepository.findById(request.getCaptainId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Captain not found with id: " + request.getCaptainId()
+                    ));
+            team.setCaptain(captain);
+        } else {
+            team.setCaptain(null);
+        }
+
+        teamRepository.save(team);
+        return "Team updated successfully";
+    }
+
+    public String deleteTeam(Long teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with id: " + teamId));
+
+        teamRepository.delete(team);
+        return "Team deleted successfully";
     }
 }
