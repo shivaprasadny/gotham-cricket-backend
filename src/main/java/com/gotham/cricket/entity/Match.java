@@ -40,4 +40,8 @@ public class Match {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MatchStatus status = MatchStatus.UPCOMING;
+
+    @ManyToOne
+    @JoinColumn(name = "team_id")
+    private Team team;
 }

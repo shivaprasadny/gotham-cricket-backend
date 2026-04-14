@@ -23,7 +23,9 @@ public class AvailabilityService {
     private final MatchRepository matchRepository;
     private final UserRepository userRepository;
 
+    // ✅ MARK AVAILABILITY
     public String markAvailability(String email, AvailabilityRequest request) {
+
         Match match = matchRepository.findById(request.getMatchId())
                 .orElseThrow(() -> new RuntimeException("Match not found with id: " + request.getMatchId()));
 
@@ -31,7 +33,7 @@ public class AvailabilityService {
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
         Availability availability = availabilityRepository
-                .findByMatchAndUser(match, user)
+                .findByMatchIdAndUserId(match.getId(), user.getId())
                 .orElse(new Availability());
 
         availability.setMatch(match);
@@ -44,7 +46,9 @@ public class AvailabilityService {
         return "Availability saved successfully";
     }
 
+    // ✅ GET ALL AVAILABILITY FOR MATCH
     public List<AvailabilityResponse> getAvailabilityByMatch(Long matchId) {
+
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
 
@@ -61,7 +65,9 @@ public class AvailabilityService {
                 .toList();
     }
 
+    // ✅ SUMMARY (COUNTS)
     public AvailabilitySummaryResponse getAvailabilitySummary(Long matchId) {
+
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
 

@@ -1,5 +1,6 @@
 package com.gotham.cricket.dto;
 
+import com.gotham.cricket.enums.AvailabilityStatus;
 import com.gotham.cricket.enums.MatchStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -17,4 +18,8 @@ public class MatchResponse {
     private String notes;
     private String createdBy;
     private MatchStatus status;
+    private Long teamId;
+    private String teamName;
+
+    private AvailabilityStatus myAvailability;
 }

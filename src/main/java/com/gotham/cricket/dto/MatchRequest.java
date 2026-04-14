@@ -25,4 +25,6 @@ public class MatchRequest {
     private String notes;
 
     private MatchStatus status = MatchStatus.UPCOMING;
+
+    private Long teamId;
 }
