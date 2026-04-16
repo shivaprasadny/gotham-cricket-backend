@@ -13,4 +13,5 @@ public class AnnouncementResponse {
     private String message;
     private String createdBy;
     private LocalDateTime createdAt;
+    private boolean pinned;
 }

@@ -46,7 +46,8 @@ public class AnnouncementService {
                         a.getTitle(),
                         a.getMessage(),
                         a.getCreatedBy(),
-                        a.getCreatedAt()
+                        a.getCreatedAt(),
+                        a.isPinned()
                 ))
                 .toList();
     }
@@ -70,6 +71,55 @@ public class AnnouncementService {
         announcementRepository.delete(announcement);
 
         return "Announcement deleted successfully";
+    }
+
+
+    // Returns the currently pinned announcement, if one exists
+    public AnnouncementResponse getPinnedAnnouncement() {
+        Announcement announcement = announcementRepository.findByPinnedTrue().orElse(null);
+
+        if (announcement == null) {
+            return null;
+        }
+
+        return new AnnouncementResponse(
+                announcement.getId(),
+                announcement.getTitle(),
+                announcement.getMessage(),
+                announcement.getCreatedBy(),
+                announcement.getCreatedAt(),
+                announcement.isPinned()
+        );
+    }
+
+    // Pins one announcement and unpins all others
+    public String pinAnnouncement(Long announcementId) {
+
+        // First, unpin any currently pinned announcement
+        announcementRepository.findByPinnedTrue().ifPresent(existingPinned -> {
+            existingPinned.setPinned(false);
+            announcementRepository.save(existingPinned);
+        });
+
+        // Then pin the selected announcement
+        Announcement announcement = announcementRepository.findById(announcementId)
+                .orElseThrow(() -> new RuntimeException("Announcement not found"));
+
+        announcement.setPinned(true);
+        announcementRepository.save(announcement);
+
+        return "Announcement pinned successfully";
+    }
+
+    // Removes pin from one announcement
+    public String unpinAnnouncement(Long announcementId) {
+        Announcement announcement = announcementRepository.findById(announcementId)
+                .orElseThrow(() -> new RuntimeException("Announcement not found"));
+
+        announcement.setPinned(false);
+        announcementRepository.save(announcement);
+
+        return "Announcement unpinned successfully";
     }
 
 

@@ -1,8 +1,7 @@
 package com.gotham.cricket.dto;
 
 import com.gotham.cricket.enums.MatchStatus;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import com.gotham.cricket.enums.MatchType;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -10,21 +9,30 @@ import java.time.LocalDateTime;
 @Data
 public class MatchRequest {
 
-    @NotBlank(message = "Opponent name is required")
-    private String opponentName;
+    // Gotham team A
+    private Long homeTeamId;
 
-    @NotNull(message = "Match date is required")
+    // Gotham team B (optional for intra-club)
+    private Long awayTeamId;
+
+    // Outside opponent name (optional)
+    private String externalOpponentName;
+
+    // Optional league
+    private Long leagueId;
+
+    // Date/time
     private LocalDateTime matchDate;
 
-    @NotBlank(message = "Venue is required")
+    // Venue
     private String venue;
 
-    @NotBlank(message = "Match type is required")
-    private String matchType;
+    // Match type
+    private MatchType matchType;
 
+    // Notes
     private String notes;
 
-    private MatchStatus status = MatchStatus.UPCOMING;
-
-    private Long teamId;
+    // Status
+    private MatchStatus status;
 }

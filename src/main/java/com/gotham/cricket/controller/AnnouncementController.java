@@ -43,4 +43,23 @@ public class AnnouncementController {
     public String deleteAnnouncement(@PathVariable Long id) {
         return announcementService.deleteAnnouncement(id);
     }
+    // Get pinned announcement for home screen
+    @GetMapping("/pinned")
+    public AnnouncementResponse getPinnedAnnouncement() {
+        return announcementService.getPinnedAnnouncement();
+    }
+
+    // Pin announcement (admin/captain only)
+    @PutMapping("/{id}/pin")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String pinAnnouncement(@PathVariable Long id) {
+        return announcementService.pinAnnouncement(id);
+    }
+
+    // Unpin announcement (admin/captain only)
+    @PutMapping("/{id}/unpin")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String unpinAnnouncement(@PathVariable Long id) {
+        return announcementService.unpinAnnouncement(id);
+    }
 }

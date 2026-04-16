@@ -1,6 +1,5 @@
 package com.gotham.cricket.service;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+
 import com.gotham.cricket.dto.LoginRequest;
 import com.gotham.cricket.dto.LoginResponse;
 import com.gotham.cricket.dto.RegisterRequest;
@@ -10,10 +9,10 @@ import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.enums.UserStatus;
 import com.gotham.cricket.repository.MemberProfileRepository;
 import com.gotham.cricket.repository.UserRepository;
+import com.gotham.cricket.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.gotham.cricket.security.JwtService;
 
 @Service
 @RequiredArgsConstructor
@@ -69,6 +68,10 @@ public class AuthService {
             throw new RuntimeException("Your account has been rejected. Contact admin");
         }
 
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new RuntimeException("Your account is inactive. Contact admin");
+        }
+
         String token = jwtService.generateToken(user.getEmail());
 
         return new LoginResponse(
@@ -81,5 +84,4 @@ public class AuthService {
                 "Login successful"
         );
     }
-
 }

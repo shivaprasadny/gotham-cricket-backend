@@ -1,6 +1,7 @@
 package com.gotham.cricket.entity;
 
 import com.gotham.cricket.enums.MatchStatus;
+import com.gotham.cricket.enums.MatchType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,33 +16,53 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class Match {
 
+    // Primary key
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "opponent_name", nullable = false)
-    private String opponentName;
+    // Home team (usually one Gotham team)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "home_team_id")
+    private Team homeTeam;
 
-    @Column(name = "match_date", nullable = false)
+    // Away team if it is Gotham vs Gotham
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "away_team_id")
+    private Team awayTeam;
+
+    // Outside opponent name if not a Gotham team
+    @Column(name = "external_opponent_name")
+    private String externalOpponentName;
+
+    // Optional linked league
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "league_id")
+    private League league;
+
+    // Match date/time
+    @Column(nullable = false)
     private LocalDateTime matchDate;
 
+    // Venue
     @Column(nullable = false)
     private String venue;
 
-    @Column(name = "match_type", nullable = false)
-    private String matchType;
-
-    @Column(columnDefinition = "TEXT")
-    private String notes;
-
-    @Column(name = "created_by", nullable = false)
-    private String createdBy;
-
+    // Type of match
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private MatchStatus status = MatchStatus.UPCOMING;
+    private MatchType matchType;
 
-    @ManyToOne
-    @JoinColumn(name = "team_id")
-    private Team team;
+    // Optional notes
+    @Column(length = 2000)
+    private String notes;
+
+    // Who created it
+    @Column(nullable = false)
+    private String createdBy;
+
+    // Match status
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MatchStatus status;
 }

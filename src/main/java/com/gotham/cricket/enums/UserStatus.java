@@ -3,5 +3,6 @@ package com.gotham.cricket.enums;
 public enum UserStatus {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED,
+    INACTIVE
 }

@@ -48,8 +48,10 @@ public class MatchController {
 
 
 
+
+
     @GetMapping("/upcoming")
     public List<Match> getUpcomingMatches() {
-        return matchRepository.findByMatchDateAfter(LocalDateTime.now());
+        return matchService.getUpcomingMatches();
     }
 }

@@ -56,4 +56,16 @@ public class AdminController {
                                    @RequestBody UpdateUserRoleRequest request) {
         return adminService.updateMemberRole(id, request.getRole());
     }
+
+    @PutMapping("/members/{userId}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String deactivateUser(@PathVariable Long userId) {
+        return adminService.deactivateUser(userId);
+    }
+
+    @PutMapping("/members/{userId}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String activateUser(@PathVariable Long userId) {
+        return adminService.activateUser(userId);
+    }
 }

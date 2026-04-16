@@ -52,7 +52,7 @@ public class AdminService {
     }
 
     public List<UserApprovalResponse> getAllApprovedMembers() {
-        return userRepository.findByStatus(UserStatus.APPROVED)
+        return userRepository.findByStatusIn(List.of(UserStatus.APPROVED, UserStatus.INACTIVE))
                 .stream()
                 .map(user -> new UserApprovalResponse(
                         user.getId(),
@@ -76,5 +76,25 @@ public class AdminService {
         userRepository.save(user);
 
         return "User role updated to " + role.name();
+    }
+
+    public String deactivateUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setStatus(UserStatus.INACTIVE);
+        userRepository.save(user);
+
+        return "User deactivated successfully";
+    }
+
+    public String activateUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setStatus(UserStatus.APPROVED);
+        userRepository.save(user);
+
+        return "User activated successfully";
     }
 }
