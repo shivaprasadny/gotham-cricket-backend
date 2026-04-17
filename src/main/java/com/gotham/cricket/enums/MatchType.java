@@ -1,10 +1,10 @@
 package com.gotham.cricket.enums;
 
-// Type of match
+// Cricket match format / style
 public enum MatchType {
-    LEAGUE,
-    FRIENDLY,
-    TOURNAMENT,
+    T20,
+    ODI,
+    TEST,
     PRACTICE,
-    INTRA_CLUB
+    FRIENDLY
 }

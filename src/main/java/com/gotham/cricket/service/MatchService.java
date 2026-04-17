@@ -8,11 +8,7 @@ import com.gotham.cricket.entity.Match;
 import com.gotham.cricket.entity.Team;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.MatchStatus;
-import com.gotham.cricket.repository.AvailabilityRepository;
-import com.gotham.cricket.repository.LeagueRepository;
-import com.gotham.cricket.repository.MatchRepository;
-import com.gotham.cricket.repository.TeamRepository;
-import com.gotham.cricket.repository.UserRepository;
+import com.gotham.cricket.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +25,7 @@ public class MatchService {
     private final TeamRepository teamRepository;
     private final LeagueRepository leagueRepository;
     private final AvailabilityRepository availabilityRepository;
+    private final MatchSquadRepository matchSquadRepository;
 
     // Create match using flexible team/opponent structure
     public String createMatch(String email, MatchRequest request) {
@@ -38,6 +35,11 @@ public class MatchService {
         Team homeTeam = null;
         Team awayTeam = null;
         League league = null;
+
+
+        if (request.getHomeTeamId() == null) {
+            throw new RuntimeException("Home team is required");
+        }
 
         // Home team is required in most cases
         if (request.getHomeTeamId() != null) {
@@ -75,7 +77,11 @@ public class MatchService {
         Match match = new Match();
         match.setHomeTeam(homeTeam);
         match.setAwayTeam(awayTeam);
-        match.setExternalOpponentName(request.getExternalOpponentName());
+        match.setExternalOpponentName(
+                request.getExternalOpponentName() != null
+                        ? request.getExternalOpponentName().trim()
+                        : null
+        );
         match.setLeague(league);
         match.setMatchDate(request.getMatchDate());
         match.setVenue(request.getVenue());
@@ -178,6 +184,13 @@ public class MatchService {
         Team awayTeam = null;
         League league = null;
 
+
+        if (request.getHomeTeamId() == null) {
+            throw new RuntimeException("Home team is required");
+        }
+
+
+
         // Load home team if sent
         if (request.getHomeTeamId() != null) {
             homeTeam = teamRepository.findById(request.getHomeTeamId())
@@ -214,7 +227,11 @@ public class MatchService {
         // Update fields
         match.setHomeTeam(homeTeam);
         match.setAwayTeam(awayTeam);
-        match.setExternalOpponentName(request.getExternalOpponentName());
+        match.setExternalOpponentName(
+                request.getExternalOpponentName() != null
+                        ? request.getExternalOpponentName().trim()
+                        : null
+        );
         match.setLeague(league);
         match.setMatchDate(request.getMatchDate());
         match.setVenue(request.getVenue());
@@ -234,19 +251,16 @@ public class MatchService {
     // Delete a match safely
     @Transactional
     public String deleteMatch(Long id) {
-
-        // Find match
         Match match = matchRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
 
-        // Delete child rows first
-        // Keep whichever repositories exist in your project
+        // First delete squad rows linked to this match
+        matchSquadRepository.deleteByMatchId(id);
+
+        // Then delete availability rows linked to this match
         availabilityRepository.deleteByMatchId(id);
 
-        // If you have squad table / repository, uncomment and use correct repository name
-        // matchSquadRepository.deleteByMatchId(id);
-
-        // Finally delete parent match
+        // Finally delete the match itself
         matchRepository.delete(match);
 
         return "Match deleted successfully";

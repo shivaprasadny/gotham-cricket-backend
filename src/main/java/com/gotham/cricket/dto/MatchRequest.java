@@ -1,7 +1,6 @@
 package com.gotham.cricket.dto;
 
 import com.gotham.cricket.enums.MatchStatus;
-import com.gotham.cricket.enums.MatchType;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -27,8 +26,8 @@ public class MatchRequest {
     // Venue
     private String venue;
 
-    // Match type
-    private MatchType matchType;
+    // Flexible text match type
+    private String matchType;
 
     // Notes
     private String notes;

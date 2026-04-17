@@ -1,7 +1,6 @@
 package com.gotham.cricket.entity;
 
 import com.gotham.cricket.enums.MatchStatus;
-import com.gotham.cricket.enums.MatchType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -48,10 +47,9 @@ public class Match {
     @Column(nullable = false)
     private String venue;
 
-    // Type of match
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MatchType matchType;
+    // Flexible match type like League / Friendly / Practice / Intra Club
+    @Column(name = "match_type", nullable = false)
+    private String matchType;
 
     // Optional notes
     @Column(length = 2000)
@@ -65,4 +63,6 @@ public class Match {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MatchStatus status;
+
+
 }

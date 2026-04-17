@@ -8,6 +8,7 @@ import com.gotham.cricket.service.MatchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +22,7 @@ public class MatchController {
     private final MatchRepository matchRepository;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String createMatch(Authentication authentication, @RequestBody MatchRequest request) {
         return matchService.createMatch(authentication.getName(), request);
     }
@@ -36,11 +38,13 @@ public class MatchController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String updateMatch(@PathVariable Long id, @RequestBody MatchRequest request) {
         return matchService.updateMatch(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String deleteMatch(@PathVariable Long id) {
         return matchService.deleteMatch(id);
     }

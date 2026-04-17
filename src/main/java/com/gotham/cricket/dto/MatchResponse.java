@@ -2,7 +2,6 @@ package com.gotham.cricket.dto;
 
 import com.gotham.cricket.enums.AvailabilityStatus;
 import com.gotham.cricket.enums.MatchStatus;
-import com.gotham.cricket.enums.MatchType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -30,11 +29,13 @@ public class MatchResponse {
     // Match fields
     private LocalDateTime matchDate;
     private String venue;
-    private MatchType matchType;
+    private String matchType;
     private String notes;
     private String createdBy;
     private MatchStatus status;
 
     // Logged-in user's availability
     private AvailabilityStatus myAvailability;
+
+
 }
