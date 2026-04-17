@@ -34,6 +34,8 @@ public class MatchResponse {
     private String createdBy;
     private MatchStatus status;
 
+    private Double matchFee;
+
     // Logged-in user's availability
     private AvailabilityStatus myAvailability;
 

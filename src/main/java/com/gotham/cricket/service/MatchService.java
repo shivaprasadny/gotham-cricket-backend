@@ -88,6 +88,7 @@ public class MatchService {
         match.setMatchType(request.getMatchType());
         match.setNotes(request.getNotes());
         match.setCreatedBy(user.getFullName());
+        match.setMatchFee(request.getMatchFee());
         match.setStatus(request.getStatus() != null ? request.getStatus() : MatchStatus.UPCOMING);
 
         matchRepository.save(match);
@@ -135,6 +136,7 @@ public class MatchService {
                             match.getNotes(),
                             match.getCreatedBy(),
                             match.getStatus(),
+                            match.getMatchFee(),
                             availability != null ? availability.getStatus() : null
                     );
                 })
@@ -168,6 +170,7 @@ public class MatchService {
                 match.getNotes(),
                 match.getCreatedBy(),
                 match.getStatus(),
+                match.getMatchFee(),
                 availability != null ? availability.getStatus() : null
         );
     }
@@ -237,6 +240,7 @@ public class MatchService {
         match.setVenue(request.getVenue());
         match.setMatchType(request.getMatchType());
         match.setNotes(request.getNotes());
+        match.setMatchFee(request.getMatchFee());
 
         // Keep current status if request status is null
         if (request.getStatus() != null) {

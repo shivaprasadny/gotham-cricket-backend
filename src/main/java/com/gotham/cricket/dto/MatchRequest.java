@@ -32,6 +32,8 @@ public class MatchRequest {
     // Notes
     private String notes;
 
+    private Double matchFee;
+
     // Status
     private MatchStatus status;
 }

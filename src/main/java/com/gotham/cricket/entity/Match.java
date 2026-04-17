@@ -59,6 +59,10 @@ public class Match {
     @Column(nullable = false)
     private String createdBy;
 
+    // Optional match fee
+    @Column(name = "match_fee")
+    private Double matchFee;
+
     // Match status
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
