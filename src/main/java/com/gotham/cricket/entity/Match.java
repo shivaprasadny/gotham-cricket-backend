@@ -63,6 +63,9 @@ public class Match {
     @Column(name = "match_fee")
     private Double matchFee;
 
+    @Column(name = "match_format")
+    private String matchFormat;
+
     // Match status
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

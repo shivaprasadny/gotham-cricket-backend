@@ -16,6 +16,13 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import com.gotham.cricket.dto.AvailableTeamMemberResponse;
+
+import com.gotham.cricket.enums.UserStatus;
+
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class TeamService {
@@ -124,9 +131,10 @@ public class TeamService {
                             teamMember.getId(),
                             user.getId(),
                             user.getFullName(),
-                            user.getEmail(),
                             profile != null ? profile.getNickname() : null,
                             profile != null ? profile.getPlayerType() : null,
+                            profile != null ? profile.getBattingStyle() : null,
+                            profile != null ? profile.getBowlingStyle() : null,
                             profile != null ? profile.getJerseyNumber() : null,
                             teamMember.getJoinedAt()
                     );
@@ -162,5 +170,38 @@ public class TeamService {
 
         teamRepository.delete(team);
         return "Team deleted successfully";
+    }
+
+
+    public List<AvailableTeamMemberResponse> getAvailableMembers(Long teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with id: " + teamId));
+
+        // Get all users already inside this team
+        Set<Long> teamUserIds = teamMemberRepository.findByTeam(team)
+                .stream()
+                .map(teamMember -> teamMember.getUser().getId())
+                .collect(Collectors.toSet());
+
+        // Get approved users only and exclude users already in this team
+        return userRepository.findByStatus(UserStatus.APPROVED)
+                .stream()
+                .filter(user -> !teamUserIds.contains(user.getId()))
+                .map(user -> {
+                    MemberProfile profile = memberProfileRepository.findByUser(user).orElse(null);
+
+                    return new AvailableTeamMemberResponse(
+                            user.getId(),
+                            user.getFullName(),
+                            profile != null ? profile.getNickname() : null,
+                            profile != null ? profile.getPlayerType() : null,
+                            profile != null ? profile.getBattingStyle() : null,
+                            profile != null ? profile.getBowlingStyle() : null,
+                            profile != null ? profile.getJerseyNumber() : null,
+                            user.getRole().name(),
+                            user.getStatus().name()
+                    );
+                })
+                .toList();
     }
 }

@@ -64,4 +64,32 @@ public class LeagueService {
                 league.isActive()
         );
     }
+
+    // Update existing league
+    public String updateLeague(Long id, CreateLeagueRequest request) {
+        League league = leagueRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("League not found"));
+
+        league.setName(request.getName());
+        league.setSeason(request.getSeason());
+        league.setType(request.getType());
+        league.setDescription(request.getDescription());
+        league.setStartDate(request.getStartDate());
+        league.setEndDate(request.getEndDate());
+        league.setActive(request.isActive());
+
+        leagueRepository.save(league);
+
+        return "League updated successfully";
+    }
+
+    // Delete league
+    public String deleteLeague(Long id) {
+        League league = leagueRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("League not found"));
+
+        leagueRepository.delete(league);
+
+        return "League deleted successfully";
+    }
 }

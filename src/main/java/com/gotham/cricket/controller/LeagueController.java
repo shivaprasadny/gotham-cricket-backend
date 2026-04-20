@@ -35,4 +35,21 @@ public class LeagueController {
     public LeagueResponse getLeagueById(@PathVariable Long id) {
         return leagueService.getLeagueById(id);
     }
+
+    // Admin / Captain can update league
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String updateLeague(
+            @PathVariable Long id,
+            @RequestBody CreateLeagueRequest request
+    ) {
+        return leagueService.updateLeague(id, request);
+    }
+
+    // Admin / Captain can delete league
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String deleteLeague(@PathVariable Long id) {
+        return leagueService.deleteLeague(id);
+    }
 }

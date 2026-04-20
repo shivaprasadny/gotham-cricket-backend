@@ -8,7 +8,12 @@ import com.gotham.cricket.entity.Match;
 import com.gotham.cricket.entity.Team;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.MatchStatus;
-import com.gotham.cricket.repository.*;
+import com.gotham.cricket.repository.AvailabilityRepository;
+import com.gotham.cricket.repository.LeagueRepository;
+import com.gotham.cricket.repository.MatchRepository;
+import com.gotham.cricket.repository.MatchSquadRepository;
+import com.gotham.cricket.repository.TeamRepository;
+import com.gotham.cricket.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,31 +41,28 @@ public class MatchService {
         Team awayTeam = null;
         League league = null;
 
-
         if (request.getHomeTeamId() == null) {
             throw new RuntimeException("Home team is required");
         }
 
-        // Home team is required in most cases
-        if (request.getHomeTeamId() != null) {
-            homeTeam = teamRepository.findById(request.getHomeTeamId())
-                    .orElseThrow(() -> new RuntimeException("Home team not found"));
-        }
+        // Home team required
+        homeTeam = teamRepository.findById(request.getHomeTeamId())
+                .orElseThrow(() -> new RuntimeException("Home team not found"));
 
-        // Away team optional for intra-club / club-vs-club
+        // Away team optional
         if (request.getAwayTeamId() != null) {
             awayTeam = teamRepository.findById(request.getAwayTeamId())
                     .orElseThrow(() -> new RuntimeException("Away team not found"));
         }
 
-        // Optional league link
+        // League optional
         if (request.getLeagueId() != null) {
             league = leagueRepository.findById(request.getLeagueId())
                     .orElseThrow(() -> new RuntimeException("League not found"));
         }
 
         // Prevent same team vs same team
-        if (homeTeam != null && awayTeam != null && homeTeam.getId().equals(awayTeam.getId())) {
+        if (awayTeam != null && homeTeam.getId().equals(awayTeam.getId())) {
             throw new RuntimeException("Home team and away team cannot be the same");
         }
 
@@ -74,6 +76,22 @@ public class MatchService {
             throw new RuntimeException("Please select an away team or enter an external opponent name");
         }
 
+        if (request.getMatchDate() == null) {
+            throw new RuntimeException("Match date is required");
+        }
+
+        if (request.getVenue() == null || request.getVenue().trim().isEmpty()) {
+            throw new RuntimeException("Venue is required");
+        }
+
+        if (request.getMatchType() == null || request.getMatchType().trim().isEmpty()) {
+            throw new RuntimeException("Match type is required");
+        }
+
+        if (request.getMatchFormat() == null || request.getMatchFormat().trim().isEmpty()) {
+            throw new RuntimeException("Match format is required");
+        }
+
         Match match = new Match();
         match.setHomeTeam(homeTeam);
         match.setAwayTeam(awayTeam);
@@ -84,9 +102,10 @@ public class MatchService {
         );
         match.setLeague(league);
         match.setMatchDate(request.getMatchDate());
-        match.setVenue(request.getVenue());
-        match.setMatchType(request.getMatchType());
-        match.setNotes(request.getNotes());
+        match.setVenue(request.getVenue().trim());
+        match.setMatchType(request.getMatchType().trim());
+        match.setMatchFormat(request.getMatchFormat().trim());
+        match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setCreatedBy(user.getFullName());
         match.setMatchFee(request.getMatchFee());
         match.setStatus(request.getStatus() != null ? request.getStatus() : MatchStatus.UPCOMING);
@@ -133,6 +152,7 @@ public class MatchService {
                             match.getMatchDate(),
                             match.getVenue(),
                             match.getMatchType(),
+                            match.getMatchFormat(),
                             match.getNotes(),
                             match.getCreatedBy(),
                             match.getStatus(),
@@ -167,6 +187,7 @@ public class MatchService {
                 match.getMatchDate(),
                 match.getVenue(),
                 match.getMatchType(),
+                match.getMatchFormat(),
                 match.getNotes(),
                 match.getCreatedBy(),
                 match.getStatus(),
@@ -175,11 +196,8 @@ public class MatchService {
         );
     }
 
-
-    // Update an existing match
+    // Update existing match
     public String updateMatch(Long id, MatchRequest request) {
-
-        // Find the match first
         Match match = matchRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
 
@@ -187,37 +205,27 @@ public class MatchService {
         Team awayTeam = null;
         League league = null;
 
-
         if (request.getHomeTeamId() == null) {
             throw new RuntimeException("Home team is required");
         }
 
+        homeTeam = teamRepository.findById(request.getHomeTeamId())
+                .orElseThrow(() -> new RuntimeException("Home team not found"));
 
-
-        // Load home team if sent
-        if (request.getHomeTeamId() != null) {
-            homeTeam = teamRepository.findById(request.getHomeTeamId())
-                    .orElseThrow(() -> new RuntimeException("Home team not found"));
-        }
-
-        // Load away team if sent
         if (request.getAwayTeamId() != null) {
             awayTeam = teamRepository.findById(request.getAwayTeamId())
                     .orElseThrow(() -> new RuntimeException("Away team not found"));
         }
 
-        // Load league if sent
         if (request.getLeagueId() != null) {
             league = leagueRepository.findById(request.getLeagueId())
                     .orElseThrow(() -> new RuntimeException("League not found"));
         }
 
-        // Prevent same team vs same team
-        if (homeTeam != null && awayTeam != null && homeTeam.getId().equals(awayTeam.getId())) {
+        if (awayTeam != null && homeTeam.getId().equals(awayTeam.getId())) {
             throw new RuntimeException("Home team and away team cannot be the same");
         }
 
-        // Validate opponent setup
         boolean hasAwayTeam = awayTeam != null;
         boolean hasExternalOpponent =
                 request.getExternalOpponentName() != null &&
@@ -227,7 +235,22 @@ public class MatchService {
             throw new RuntimeException("Please select an away team or enter an external opponent name");
         }
 
-        // Update fields
+        if (request.getMatchDate() == null) {
+            throw new RuntimeException("Match date is required");
+        }
+
+        if (request.getVenue() == null || request.getVenue().trim().isEmpty()) {
+            throw new RuntimeException("Venue is required");
+        }
+
+        if (request.getMatchType() == null || request.getMatchType().trim().isEmpty()) {
+            throw new RuntimeException("Match type is required");
+        }
+
+        if (request.getMatchFormat() == null || request.getMatchFormat().trim().isEmpty()) {
+            throw new RuntimeException("Match format is required");
+        }
+
         match.setHomeTeam(homeTeam);
         match.setAwayTeam(awayTeam);
         match.setExternalOpponentName(
@@ -237,12 +260,12 @@ public class MatchService {
         );
         match.setLeague(league);
         match.setMatchDate(request.getMatchDate());
-        match.setVenue(request.getVenue());
-        match.setMatchType(request.getMatchType());
-        match.setNotes(request.getNotes());
+        match.setVenue(request.getVenue().trim());
+        match.setMatchType(request.getMatchType().trim());
+        match.setMatchFormat(request.getMatchFormat().trim());
+        match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setMatchFee(request.getMatchFee());
 
-        // Keep current status if request status is null
         if (request.getStatus() != null) {
             match.setStatus(request.getStatus());
         }
@@ -252,23 +275,19 @@ public class MatchService {
         return "Match updated successfully";
     }
 
-    // Delete a match safely
+    // Delete match safely
     @Transactional
     public String deleteMatch(Long id) {
         Match match = matchRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
 
-        // First delete squad rows linked to this match
         matchSquadRepository.deleteByMatchId(id);
-
-        // Then delete availability rows linked to this match
         availabilityRepository.deleteByMatchId(id);
-
-        // Finally delete the match itself
         matchRepository.delete(match);
 
         return "Match deleted successfully";
     }
+
     // Return future matches only
     public List<Match> getUpcomingMatches() {
         return matchRepository.findByMatchDateAfter(LocalDateTime.now());

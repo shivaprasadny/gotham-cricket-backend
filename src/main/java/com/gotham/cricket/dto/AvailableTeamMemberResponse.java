@@ -3,12 +3,9 @@ package com.gotham.cricket.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 @Data
 @AllArgsConstructor
-public class TeamMemberResponse {
-    private Long teamMemberId;
+public class AvailableTeamMemberResponse {
     private Long userId;
     private String fullName;
     private String nickname;
@@ -16,5 +13,6 @@ public class TeamMemberResponse {
     private String battingStyle;
     private String bowlingStyle;
     private Integer jerseyNumber;
-    private LocalDateTime joinedAt;
+    private String role;
+    private String status;
 }

@@ -1,5 +1,6 @@
 package com.gotham.cricket.controller;
 
+import com.gotham.cricket.dto.AvailableTeamMemberResponse;
 import com.gotham.cricket.dto.TeamMemberResponse;
 import com.gotham.cricket.dto.TeamRequest;
 import com.gotham.cricket.dto.TeamResponse;
@@ -38,13 +39,13 @@ public class TeamController {
     }
 
     @PostMapping("/{teamId}/members/{userId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String addMemberToTeam(@PathVariable Long teamId, @PathVariable Long userId) {
         return teamService.addMemberToTeam(teamId, userId);
     }
 
     @DeleteMapping("/{teamId}/members/{userId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String removeMemberFromTeam(@PathVariable Long teamId, @PathVariable Long userId) {
         return teamService.removeMemberFromTeam(teamId, userId);
     }
@@ -56,15 +57,22 @@ public class TeamController {
     }
 
     @PutMapping("/{teamId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String updateTeam(@PathVariable Long teamId,
                              @Valid @RequestBody TeamRequest request) {
         return teamService.updateTeam(teamId, request);
     }
 
     @DeleteMapping("/{teamId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String deleteTeam(@PathVariable Long teamId) {
         return teamService.deleteTeam(teamId);
     }
+
+    @GetMapping("/{teamId}/available-members")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public List<AvailableTeamMemberResponse> getAvailableMembers(@PathVariable Long teamId) {
+        return teamService.getAvailableMembers(teamId);
+    }
+
 }

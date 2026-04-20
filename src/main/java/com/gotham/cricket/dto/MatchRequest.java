@@ -36,4 +36,8 @@ public class MatchRequest {
 
     // Status
     private MatchStatus status;
+
+
+    // Match format like T20 / T25 / ODI / Test
+    private String matchFormat;
 }

@@ -13,7 +13,6 @@ public class MatchResponse {
 
     private Long id;
 
-    // Teams / opponent display info
     private Long homeTeamId;
     private String homeTeamName;
 
@@ -22,22 +21,20 @@ public class MatchResponse {
 
     private String externalOpponentName;
 
-    // League info
     private Long leagueId;
     private String leagueName;
 
-    // Match fields
     private LocalDateTime matchDate;
     private String venue;
+
     private String matchType;
+    private String matchFormat;
+
     private String notes;
     private String createdBy;
-    private MatchStatus status;
 
+    private MatchStatus status;
     private Double matchFee;
 
-    // Logged-in user's availability
     private AvailabilityStatus myAvailability;
-
-
 }
