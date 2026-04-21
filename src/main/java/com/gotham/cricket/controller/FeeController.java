@@ -1,23 +1,15 @@
 package com.gotham.cricket.controller;
 
-import com.gotham.cricket.dto.CreateFeeRequest;
-import com.gotham.cricket.dto.FeeAssignmentResponse;
-import com.gotham.cricket.dto.FeeDefinitionResponse;
-import com.gotham.cricket.dto.FeeSummaryResponse;
+import com.gotham.cricket.dto.*;
 import com.gotham.cricket.service.FeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import com.gotham.cricket.dto.SubmitFeePaymentRequest;
-import com.gotham.cricket.dto.WaiveFeeRequest;
 
 import java.util.List;
 
-/**
- * Controller for fee management.
- */
 @RestController
 @RequestMapping("/api/fees")
 @RequiredArgsConstructor
@@ -26,9 +18,7 @@ public class FeeController {
 
     private final FeeService feeService;
 
-    /**
-     * Admin/captain creates a fee and assigns it to users.
-     */
+    // Admin/captain creates a fee
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String createFee(
@@ -38,52 +28,40 @@ public class FeeController {
         return feeService.createFee(authentication.getName(), request);
     }
 
-    /**
-     * Admin/captain gets all master fee definitions.
-     */
+    // Admin/captain gets all fee definitions
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public List<FeeDefinitionResponse> getAllFeeDefinitions() {
         return feeService.getAllFeeDefinitions();
     }
 
-    /**
-     * Admin/captain gets one fee definition.
-     */
+    // Admin/captain gets one fee definition
     @GetMapping("/{feeDefinitionId}")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public FeeDefinitionResponse getFeeDefinitionById(@PathVariable Long feeDefinitionId) {
         return feeService.getFeeDefinitionById(feeDefinitionId);
     }
 
-    /**
-     * Admin/captain gets all user assignments under one fee.
-     */
+    // Admin/captain gets assignments under one fee
     @GetMapping("/{feeDefinitionId}/assignments")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public List<FeeAssignmentResponse> getAssignmentsByFeeDefinition(@PathVariable Long feeDefinitionId) {
         return feeService.getAssignmentsByFeeDefinition(feeDefinitionId);
     }
 
-    /**
-     * Logged-in user gets their fee history.
-     */
+    // Logged-in user gets own fees
     @GetMapping("/my")
     public List<FeeAssignmentResponse> getMyFees(Authentication authentication) {
         return feeService.getMyFees(authentication.getName());
     }
 
-    /**
-     * Logged-in user gets fee summary for home screen / My Fees.
-     */
+    // Logged-in user gets own fee summary
     @GetMapping("/my/summary")
     public FeeSummaryResponse getMyFeeSummary(Authentication authentication) {
         return feeService.getMyFeeSummary(authentication.getName());
     }
 
-    /**
-     * Player submits payment note for their own fee assignment.
-     */
+    // Player submits payment note
     @PostMapping("/assignments/{assignmentId}/submit-payment")
     public String submitMyPayment(
             @PathVariable Long assignmentId,
@@ -98,9 +76,7 @@ public class FeeController {
         );
     }
 
-    /**
-     * Admin/captain confirms one user's fee payment.
-     */
+    // Admin/captain confirms payment
     @PutMapping("/assignments/{assignmentId}/confirm-payment")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String confirmFeePayment(
@@ -110,9 +86,7 @@ public class FeeController {
         return feeService.confirmFeePayment(assignmentId, authentication.getName());
     }
 
-    /**
-     * Admin/captain waives one user's fee assignment.
-     */
+    // Admin/captain waives one fee
     @PutMapping("/assignments/{assignmentId}/waive")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String waiveFee(
@@ -120,17 +94,6 @@ public class FeeController {
             @RequestBody WaiveFeeRequest request
     ) {
         return feeService.waiveFee(assignmentId, request.getWaiverReason());
-    }
-    /**
-     * Create and assign match fee to squad players.
-     */
-    @PostMapping("/matches/{matchId}/assign-to-squad")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    public String assignMatchFeeToSquad(
-            @PathVariable Long matchId,
-            Authentication authentication
-    ) {
-        return feeService.assignMatchFeeToSquad(matchId, authentication.getName());
     }
 
     // Admin/captain updates one fee
@@ -148,5 +111,25 @@ public class FeeController {
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     public String deleteFee(@PathVariable Long feeDefinitionId) {
         return feeService.deleteFee(feeDefinitionId);
+    }
+
+    // Admin/captain assigns saved match fee to chargeable squad players
+    @PostMapping("/matches/{matchId}/assign-to-squad")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String assignMatchFeeToSquad(
+            @PathVariable Long matchId,
+            Authentication authentication
+    ) {
+        return feeService.assignMatchFeeToSquad(matchId, authentication.getName());
+    }
+
+    // Admin/captain creates fee with custom split amounts
+    @PostMapping("/split")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String createSplitFee(
+            Authentication authentication,
+            @Valid @RequestBody CreateSplitFeeRequest request
+    ) {
+        return feeService.createSplitFee(authentication.getName(), request);
     }
 }

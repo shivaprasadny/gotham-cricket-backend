@@ -18,6 +18,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,8 @@ import com.gotham.cricket.enums.FeeAssignmentType;
 import com.gotham.cricket.enums.FeeType;
 import com.gotham.cricket.repository.MatchRepository;
 import com.gotham.cricket.repository.MatchSquadRepository;
-
+import com.gotham.cricket.dto.CreateSplitFeeRequest;
+import com.gotham.cricket.dto.PlayerFeeSplitItem;
 /**
  * Service layer for fee management.
  *
@@ -524,5 +526,77 @@ public class FeeService {
         feeDefinitionRepository.delete(feeDefinition);
 
         return "Fee deleted successfully";
+    }
+
+    /**
+     * Create one fee with custom amount per selected player.
+     */
+    @Transactional
+    public String createSplitFee(String email, CreateSplitFeeRequest request) {
+        User creator = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Validate split rows
+        if (request.getSplits() == null || request.getSplits().isEmpty()) {
+            throw new RuntimeException("At least one split player is required");
+        }
+
+        // Create fee definition
+        FeeDefinition feeDefinition = new FeeDefinition();
+        feeDefinition.setTitle(request.getTitle());
+        feeDefinition.setFeeType(request.getFeeType());
+        feeDefinition.setDueDate(request.getDueDate());
+        feeDefinition.setDescription(request.getDescription());
+        feeDefinition.setMatchId(request.getMatchId());
+        feeDefinition.setEventId(request.getEventId());
+        feeDefinition.setTeamId(request.getTeamId());
+        feeDefinition.setSeason(request.getSeason());
+        feeDefinition.setAssignmentType(FeeAssignmentType.SELECTED_USERS);
+        feeDefinition.setCreatedBy(creator.getFullName());
+        feeDefinition.setActive(true);
+
+        // Save total amount for summary only
+        double totalAmount = request.getSplits()
+                .stream()
+                .filter(split -> split.getAmount() != null && split.getAmount() > 0)
+                .mapToDouble(PlayerFeeSplitItem::getAmount)
+                .sum();
+
+        feeDefinition.setAmount(totalAmount);
+
+        feeDefinitionRepository.save(feeDefinition);
+
+        // Create one assignment per split row
+        List<FeeAssignment> assignments = new ArrayList<>();
+
+        for (PlayerFeeSplitItem split : request.getSplits()) {
+            if (split.getUserId() == null) {
+                throw new RuntimeException("User ID is required in all split items");
+            }
+
+            if (split.getAmount() == null || split.getAmount() <= 0) {
+                continue; // skip zero or invalid rows
+            }
+
+            User user = userRepository.findById(split.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + split.getUserId()));
+
+            FeeAssignment assignment = new FeeAssignment();
+            assignment.setFeeDefinition(feeDefinition);
+            assignment.setUser(user);
+            assignment.setAmount(split.getAmount());
+            assignment.setDueDate(request.getDueDate());
+            assignment.setStatus(FeeStatus.UNPAID);
+
+            assignments.add(assignment);
+        }
+
+        if (assignments.isEmpty()) {
+            throw new RuntimeException("No valid split amounts found");
+        }
+
+        feeAssignmentRepository.saveAll(assignments);
+
+        return "Custom split fee created successfully";
     }
 }
