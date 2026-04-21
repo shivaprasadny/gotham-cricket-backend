@@ -13,4 +13,6 @@ public interface EventAvailabilityRepository extends JpaRepository<EventAvailabi
 
     // Get all responses for an event
     List<EventAvailability> findByEventId(Long eventId);
+
+    void deleteByEventId(Long eventId);
 }

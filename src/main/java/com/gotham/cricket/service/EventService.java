@@ -10,6 +10,7 @@ import com.gotham.cricket.entity.User;
 import com.gotham.cricket.repository.EventAvailabilityRepository;
 import com.gotham.cricket.repository.EventRepository;
 import com.gotham.cricket.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -64,6 +65,36 @@ public class EventService {
                     );
                 })
                 .toList();
+    }
+
+    // Update event
+    public String updateEvent(Long eventId, CreateEventRequest request) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+        event.setTitle(request.getTitle());
+        event.setDescription(request.getDescription());
+        event.setEventDate(request.getEventDate());
+        event.setLocation(request.getLocation());
+
+        eventRepository.save(event);
+
+        return "Event updated successfully";
+    }
+
+    // Delete event
+    @Transactional
+    public String deleteEvent(Long eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+        // delete child rows first
+        eventAvailabilityRepository.deleteByEventId(eventId);
+
+        // then delete event
+        eventRepository.delete(event);
+
+        return "Event deleted successfully";
     }
 
     // Submit or update one user's event response
