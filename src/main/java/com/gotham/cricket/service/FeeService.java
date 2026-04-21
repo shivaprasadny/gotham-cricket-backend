@@ -479,4 +479,50 @@ public class FeeService {
 
         return "Match fee assigned to squad players successfully";
     }
+
+    // Update one fee definition
+    @Transactional
+    public String updateFee(Long feeDefinitionId, CreateFeeRequest request) {
+        FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
+                .orElseThrow(() -> new RuntimeException("Fee definition not found"));
+
+        feeDefinition.setTitle(request.getTitle());
+        feeDefinition.setFeeType(request.getFeeType());
+        feeDefinition.setAmount(request.getAmount());
+        feeDefinition.setDueDate(request.getDueDate());
+        feeDefinition.setDescription(request.getDescription());
+        feeDefinition.setMatchId(request.getMatchId());
+        feeDefinition.setEventId(request.getEventId());
+        feeDefinition.setTeamId(request.getTeamId());
+        feeDefinition.setSeason(request.getSeason());
+        feeDefinition.setAssignmentType(request.getAssignmentType());
+
+        feeDefinitionRepository.save(feeDefinition);
+
+        // Update all child assignments with latest amount + due date
+        List<FeeAssignment> assignments = feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
+
+        for (FeeAssignment assignment : assignments) {
+            assignment.setAmount(request.getAmount());
+            assignment.setDueDate(request.getDueDate());
+        }
+
+        feeAssignmentRepository.saveAll(assignments);
+
+        return "Fee updated successfully";
+    }
+
+    // Delete one fee definition and all assignments under it
+    @Transactional
+    public String deleteFee(Long feeDefinitionId) {
+        FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
+                .orElseThrow(() -> new RuntimeException("Fee definition not found"));
+
+        List<FeeAssignment> assignments = feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
+
+        feeAssignmentRepository.deleteAll(assignments);
+        feeDefinitionRepository.delete(feeDefinition);
+
+        return "Fee deleted successfully";
+    }
 }

@@ -132,4 +132,21 @@ public class FeeController {
     ) {
         return feeService.assignMatchFeeToSquad(matchId, authentication.getName());
     }
+
+    // Admin/captain updates one fee
+    @PutMapping("/{feeDefinitionId}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String updateFee(
+            @PathVariable Long feeDefinitionId,
+            @Valid @RequestBody CreateFeeRequest request
+    ) {
+        return feeService.updateFee(feeDefinitionId, request);
+    }
+
+    // Admin/captain deletes one fee
+    @DeleteMapping("/{feeDefinitionId}")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String deleteFee(@PathVariable Long feeDefinitionId) {
+        return feeService.deleteFee(feeDefinitionId);
+    }
 }

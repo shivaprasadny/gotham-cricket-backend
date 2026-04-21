@@ -89,33 +89,21 @@ public class AvailabilityService {
     }
 
     public String submitAvailability(Long matchId, String email, AvailabilityRequest request) {
-
-        // Find logged-in user
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Find match
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
 
-        // 🔒 LOCK RULE:
-        // If current time is after match time, block availability update
-        if (match.getMatchDate() != null && match.getMatchDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Availability is locked because the match time has passed");
-        }
-
-        // Check if user already submitted availability for this match
         Availability availability = availabilityRepository
                 .findByMatchIdAndUserId(matchId, user.getId())
                 .orElse(new Availability());
 
-        // Set values
         availability.setMatch(match);
         availability.setUser(user);
         availability.setStatus(request.getStatus());
         availability.setMessage(request.getMessage());
 
-        // Save
         availabilityRepository.save(availability);
 
         return "Availability submitted successfully";
