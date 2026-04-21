@@ -121,4 +121,15 @@ public class FeeController {
     ) {
         return feeService.waiveFee(assignmentId, request.getWaiverReason());
     }
+    /**
+     * Create and assign match fee to squad players.
+     */
+    @PostMapping("/matches/{matchId}/assign-to-squad")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String assignMatchFeeToSquad(
+            @PathVariable Long matchId,
+            Authentication authentication
+    ) {
+        return feeService.assignMatchFeeToSquad(matchId, authentication.getName());
+    }
 }

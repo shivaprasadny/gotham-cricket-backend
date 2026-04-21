@@ -66,6 +66,16 @@ public class Match {
     @Column(name = "match_format")
     private String matchFormat;
 
+    // Optional match fee amount per player
+    private Double matchFeeAmount;
+
+    // Optional due date for match fee
+    private LocalDateTime matchFeeDueDate;
+
+    // Optional admin note for the fee
+    @Column(length = 1000)
+    private String matchFeeDescription;
+
     // Match status
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

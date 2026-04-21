@@ -18,4 +18,6 @@ public interface MatchSquadRepository extends JpaRepository<MatchSquad, Long> {
     @Modifying
     @Query("DELETE FROM MatchSquad ms WHERE ms.match.id = :matchId")
     void deleteByMatchId(@Param("matchId") Long matchId);
+    // Get all squad rows for one match
+    List<MatchSquad> findByMatchId(Long matchId);
 }

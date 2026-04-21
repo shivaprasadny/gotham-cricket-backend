@@ -21,6 +21,12 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.gotham.cricket.entity.Match;
+import com.gotham.cricket.entity.MatchSquad;
+import com.gotham.cricket.enums.FeeAssignmentType;
+import com.gotham.cricket.enums.FeeType;
+import com.gotham.cricket.repository.MatchRepository;
+import com.gotham.cricket.repository.MatchSquadRepository;
 
 /**
  * Service layer for fee management.
@@ -39,6 +45,8 @@ public class FeeService {
     private final FeeAssignmentRepository feeAssignmentRepository;
     private final UserRepository userRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final MatchRepository matchRepository;
+    private final MatchSquadRepository matchSquadRepository;
 
     /**
      * Creates a fee definition and automatically assigns it to users
@@ -379,5 +387,96 @@ public class FeeService {
         feeAssignmentRepository.save(assignment);
 
         return "Fee waived successfully";
+    }
+
+    /**
+     * Create a match fee from saved match fee config
+     * and assign it only to selected squad players.
+     */
+    @Transactional
+    public String assignMatchFeeToSquad(Long matchId, String email) {
+        User creator = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new RuntimeException("Match not found"));
+
+        // Match must have amount before assignment
+        if (match.getMatchFeeAmount() == null || match.getMatchFeeAmount() <= 0) {
+            throw new RuntimeException("This match does not have a valid match fee amount");
+        }
+
+        // Match must have fee due date before assignment
+        if (match.getMatchFeeDueDate() == null) {
+            throw new RuntimeException("This match does not have a fee due date");
+        }
+
+        // Load only players who should be charged
+        List<MatchSquad> squadRows = matchSquadRepository.findByMatchId(matchId)
+                .stream()
+                .filter(squadRow ->
+                        Boolean.TRUE.equals(squadRow.getIsPlayingXi()) ||
+                                "IMPACT_PLAYER".equals(squadRow.getRoleInMatch())
+                )
+                .toList();
+
+        if (squadRows.isEmpty()) {
+            throw new RuntimeException("No Playing XI or Impact Player found for this match");
+        }
+
+        // Prevent duplicate fee creation for same match
+        boolean alreadyExists = feeDefinitionRepository.findAll()
+                .stream()
+                .anyMatch(fee ->
+                        fee.getMatchId() != null &&
+                                fee.getMatchId().equals(matchId) &&
+                                fee.getFeeType() == FeeType.MATCH_FEE
+                );
+
+        if (alreadyExists) {
+            throw new RuntimeException("Match fee already assigned for this match");
+        }
+
+        // Build fee title from match info
+        String opponentName = match.getAwayTeam() != null
+                ? match.getAwayTeam().getTeamName()
+                : match.getExternalOpponentName();
+
+        String title = "Match Fee - " +
+                (match.getHomeTeam() != null ? match.getHomeTeam().getTeamName() : "Team") +
+                " vs " +
+                (opponentName != null ? opponentName : "Opponent");
+
+        // Create master fee definition
+        FeeDefinition feeDefinition = new FeeDefinition();
+        feeDefinition.setTitle(title);
+        feeDefinition.setFeeType(FeeType.MATCH_FEE);
+        feeDefinition.setAmount(match.getMatchFeeAmount());
+        feeDefinition.setDueDate(match.getMatchFeeDueDate());
+        feeDefinition.setDescription(match.getMatchFeeDescription());
+        feeDefinition.setMatchId(match.getId());
+        feeDefinition.setAssignmentType(FeeAssignmentType.SQUAD_PLAYERS);
+        feeDefinition.setCreatedBy(creator.getFullName());
+        feeDefinition.setActive(true);
+
+        feeDefinitionRepository.save(feeDefinition);
+
+        // Create one fee row per squad player
+        List<FeeAssignment> assignments = new ArrayList<>();
+
+        for (MatchSquad squadRow : squadRows) {
+            FeeAssignment assignment = new FeeAssignment();
+            assignment.setFeeDefinition(feeDefinition);
+            assignment.setUser(squadRow.getUser());
+            assignment.setAmount(match.getMatchFeeAmount());
+            assignment.setDueDate(match.getMatchFeeDueDate());
+            assignment.setStatus(FeeStatus.UNPAID);
+
+            assignments.add(assignment);
+        }
+
+        feeAssignmentRepository.saveAll(assignments);
+
+        return "Match fee assigned to squad players successfully";
     }
 }

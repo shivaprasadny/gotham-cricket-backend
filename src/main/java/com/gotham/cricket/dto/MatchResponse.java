@@ -36,5 +36,9 @@ public class MatchResponse {
     private MatchStatus status;
     private Double matchFee;
 
+    private Double matchFeeAmount;
+    private LocalDateTime matchFeeDueDate;
+    private String matchFeeDescription;
+
     private AvailabilityStatus myAvailability;
 }

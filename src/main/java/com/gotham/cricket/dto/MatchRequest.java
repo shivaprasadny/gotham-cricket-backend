@@ -37,6 +37,15 @@ public class MatchRequest {
     // Status
     private MatchStatus status;
 
+    // Optional match fee amount per player
+    private Double matchFeeAmount;
+
+    // Optional due date for match fee
+    private LocalDateTime matchFeeDueDate;
+
+    // Optional fee description
+    private String matchFeeDescription;
+
 
     // Match format like T20 / T25 / ODI / Test
     private String matchFormat;

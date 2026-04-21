@@ -108,6 +108,10 @@ public class MatchService {
         match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setCreatedBy(user.getFullName());
         match.setMatchFee(request.getMatchFee());
+        // Save optional squad fee config on the match
+        match.setMatchFeeAmount(request.getMatchFeeAmount());
+        match.setMatchFeeDueDate(request.getMatchFeeDueDate());
+        match.setMatchFeeDescription(request.getMatchFeeDescription());
         match.setStatus(request.getStatus() != null ? request.getStatus() : MatchStatus.UPCOMING);
 
         matchRepository.save(match);
@@ -157,6 +161,9 @@ public class MatchService {
                             match.getCreatedBy(),
                             match.getStatus(),
                             match.getMatchFee(),
+                            match.getMatchFeeAmount(),
+                            match.getMatchFeeDueDate(),
+                            match.getMatchFeeDescription(),
                             availability != null ? availability.getStatus() : null
                     );
                 })
@@ -192,6 +199,9 @@ public class MatchService {
                 match.getCreatedBy(),
                 match.getStatus(),
                 match.getMatchFee(),
+                match.getMatchFeeAmount(),
+                match.getMatchFeeDueDate(),
+                match.getMatchFeeDescription(),
                 availability != null ? availability.getStatus() : null
         );
     }
@@ -265,6 +275,10 @@ public class MatchService {
         match.setMatchFormat(request.getMatchFormat().trim());
         match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setMatchFee(request.getMatchFee());
+        // Update optional match fee config
+        match.setMatchFeeAmount(request.getMatchFeeAmount());
+        match.setMatchFeeDueDate(request.getMatchFeeDueDate());
+        match.setMatchFeeDescription(request.getMatchFeeDescription());
 
         if (request.getStatus() != null) {
             match.setStatus(request.getStatus());
