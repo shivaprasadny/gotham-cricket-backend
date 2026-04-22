@@ -16,14 +16,16 @@ public class MemberController {
 
     private final MemberService memberService;
 
+    // Everyone can view approved members list
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
     public List<MemberResponse> getAllApprovedMembers() {
         return memberService.getAllApprovedMembers();
     }
 
+    // Admin/Captain only can open one member detail
     @GetMapping("/{userId}")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
     public MemberResponse getMemberById(@PathVariable Long userId) {
         return memberService.getMemberById(userId);
     }
