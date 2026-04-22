@@ -29,10 +29,13 @@ public class AnnouncementService {
         announcement.setCreatedBy(user.getFullName());
 
         announcementRepository.save(announcement);
-        notificationService.sendPushNotificationToUser(
-                email,
+
+        notificationService.createForAllUsers(
                 "Announcement Posted",
-                request.getTitle()
+                request.getTitle(),
+                "ANNOUNCEMENT",
+                "Announcements",
+                null
         );
 
         return "Announcement created successfully";
