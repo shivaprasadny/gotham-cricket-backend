@@ -19,27 +19,57 @@ public class SquadService {
     private final MatchRepository matchRepository;
     private final UserRepository userRepository;
 
+    /**
+     * Add or update player in squad
+     */
     public String addPlayer(Long matchId, Long userId, boolean playingXI) {
+
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Squad squad = squadRepository.findByMatchAndUser(match, user).orElse(new Squad());
+        // Check if already exists (update instead of duplicate)
+        Squad squad = squadRepository.findByMatchAndUser(match, user)
+                .orElse(new Squad());
+
         squad.setMatch(match);
         squad.setUser(user);
         squad.setPlayingXi(playingXI);
 
         squadRepository.save(squad);
 
-        return "Player added to squad";
+        return "Player added/updated in squad";
     }
 
+    /**
+     * Get squad for a match
+     */
     public List<Squad> getSquad(Long matchId) {
+
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
 
         return squadRepository.findByMatch(match);
+    }
+
+    /**
+     * Remove player from squad
+     */
+    public String removePlayer(Long matchId, Long userId) {
+
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new RuntimeException("Match not found"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Squad squad = squadRepository.findByMatchAndUser(match, user)
+                .orElseThrow(() -> new RuntimeException("Player not in squad"));
+
+        squadRepository.delete(squad);
+
+        return "Player removed from squad";
     }
 }

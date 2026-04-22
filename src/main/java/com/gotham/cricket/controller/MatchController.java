@@ -23,7 +23,7 @@ public class MatchController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    public String createMatch(Authentication authentication, @RequestBody MatchRequest request) {
+    public MatchResponse createMatch(Authentication authentication, @RequestBody MatchRequest request) {
         return matchService.createMatch(authentication.getName(), request);
     }
 

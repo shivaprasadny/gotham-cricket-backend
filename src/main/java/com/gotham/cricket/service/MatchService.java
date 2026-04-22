@@ -33,7 +33,7 @@ public class MatchService {
     private final MatchSquadRepository matchSquadRepository;
 
     // Create match using flexible team/opponent structure
-    public String createMatch(String email, MatchRequest request) {
+    public MatchResponse createMatch(String email, MatchRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
@@ -114,9 +114,34 @@ public class MatchService {
         match.setMatchFeeDescription(request.getMatchFeeDescription());
         match.setStatus(request.getStatus() != null ? request.getStatus() : MatchStatus.UPCOMING);
 
-        matchRepository.save(match);
+        Match savedMatch = matchRepository.save(match);
 
-        return "Match created successfully";
+        Availability availability = availabilityRepository
+                .findByMatchIdAndUserId(savedMatch.getId(), user.getId())
+                .orElse(null);
+
+        return new MatchResponse(
+                savedMatch.getId(),
+                savedMatch.getHomeTeam() != null ? savedMatch.getHomeTeam().getId() : null,
+                savedMatch.getHomeTeam() != null ? savedMatch.getHomeTeam().getTeamName() : null,
+                savedMatch.getAwayTeam() != null ? savedMatch.getAwayTeam().getId() : null,
+                savedMatch.getAwayTeam() != null ? savedMatch.getAwayTeam().getTeamName() : null,
+                savedMatch.getExternalOpponentName(),
+                savedMatch.getLeague() != null ? savedMatch.getLeague().getId() : null,
+                savedMatch.getLeague() != null ? savedMatch.getLeague().getName() : null,
+                savedMatch.getMatchDate(),
+                savedMatch.getVenue(),
+                savedMatch.getMatchType(),
+                savedMatch.getMatchFormat(),
+                savedMatch.getNotes(),
+                savedMatch.getCreatedBy(),
+                savedMatch.getStatus(),
+                savedMatch.getMatchFee(),
+                savedMatch.getMatchFeeAmount(),
+                savedMatch.getMatchFeeDueDate(),
+                savedMatch.getMatchFeeDescription(),
+                availability != null ? availability.getStatus() : null
+        );
     }
 
     // Return all matches with automatic old match completion

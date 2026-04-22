@@ -28,13 +28,13 @@ public class AvailabilityController {
     }
 
     @GetMapping("/match/{matchId}")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
     public List<AvailabilityResponse> getAvailabilityByMatch(@PathVariable Long matchId) {
         return availabilityService.getAvailabilityByMatch(matchId);
     }
 
     @GetMapping("/match/{matchId}/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
     public AvailabilitySummaryResponse getAvailabilitySummary(@PathVariable Long matchId) {
         return availabilityService.getAvailabilitySummary(matchId);
     }
