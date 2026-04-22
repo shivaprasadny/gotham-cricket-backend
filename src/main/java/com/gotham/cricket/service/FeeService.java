@@ -49,6 +49,7 @@ public class FeeService {
     private final TeamMemberRepository teamMemberRepository;
     private final MatchRepository matchRepository;
     private final MatchSquadRepository matchSquadRepository;
+    private final NotificationService notificationService;
 
     /**
      * Creates a fee definition and automatically assigns it to users
@@ -101,6 +102,21 @@ public class FeeService {
         }
 
         feeAssignmentRepository.saveAll(assignments);
+
+// Build assigned user id list
+        List<Long> assignedUserIds = assignments.stream()
+                .map(assignment -> assignment.getUser().getId())
+                .toList();
+
+// Notify only users who got the fee
+        notificationService.createForUserIds(
+                assignedUserIds,
+                "New Fee Assigned",
+                feeDefinition.getTitle() + " - $" + feeDefinition.getAmount(),
+                "FEE",
+                "MyFees",
+                null
+        );
 
         return "Fee created and assigned successfully";
     }
@@ -275,6 +291,8 @@ public class FeeService {
      */
     private FeeAssignmentResponse mapFeeAssignmentToResponse(FeeAssignment assignment) {
         FeeDefinition feeDefinition = assignment.getFeeDefinition();
+
+
 
         return new FeeAssignmentResponse(
                 assignment.getId(),
@@ -479,6 +497,21 @@ public class FeeService {
 
         feeAssignmentRepository.saveAll(assignments);
 
+// Build assigned user id list
+        List<Long> assignedUserIds = assignments.stream()
+                .map(assignment -> assignment.getUser().getId())
+                .toList();
+
+// Notify only squad players who got charged
+        notificationService.createForUserIds(
+                assignedUserIds,
+                "New Match Fee Assigned",
+                feeDefinition.getTitle() + " - $" + feeDefinition.getAmount(),
+                "FEE",
+                "MyFees",
+                null
+        );
+
         return "Match fee assigned to squad players successfully";
     }
 
@@ -596,6 +629,21 @@ public class FeeService {
         }
 
         feeAssignmentRepository.saveAll(assignments);
+
+// Build assigned user id list
+        List<Long> assignedUserIds = assignments.stream()
+                .map(assignment -> assignment.getUser().getId())
+                .toList();
+
+// Notify only users who got this split fee
+        notificationService.createForUserIds(
+                assignedUserIds,
+                "New Fee Assigned",
+                feeDefinition.getTitle() + " - $" + feeDefinition.getAmount(),
+                "FEE",
+                "MyFees",
+                null
+        );
 
         return "Custom split fee created successfully";
     }

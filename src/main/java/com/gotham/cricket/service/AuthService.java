@@ -22,6 +22,8 @@ public class AuthService {
     private final MemberProfileRepository memberProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    // Notification service for backend notifications
+    private final NotificationService notificationService;
 
     public String register(RegisterRequest request) {
 
@@ -37,6 +39,15 @@ public class AuthService {
         user.setStatus(UserStatus.PENDING);
 
         User savedUser = userRepository.save(user);
+
+        notificationService.createForRole(
+                "ADMIN",
+                "New Member Join Request",
+                savedUser.getFullName() + " requested to join the club",
+                "MEMBER",
+                "AdminApproval",
+                null
+        );
 
         MemberProfile profile = new MemberProfile();
         profile.setUser(savedUser);

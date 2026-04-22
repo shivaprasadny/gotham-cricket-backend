@@ -14,8 +14,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminService {
 
+    // User repository for member operations
     private final UserRepository userRepository;
 
+    // Notification service for backend notifications
+    private final NotificationService notificationService;
+
+    // Get all pending members
     public List<UserApprovalResponse> getPendingMembers() {
         return userRepository.findByStatus(UserStatus.PENDING)
                 .stream()
@@ -29,6 +34,7 @@ public class AdminService {
                 .toList();
     }
 
+    // Approve a pending member and send admin-only notification
     public String approveMember(Long userId, Role role) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
@@ -38,9 +44,20 @@ public class AdminService {
 
         userRepository.save(user);
 
+        // Notify admins only that a member was approved
+        notificationService.createForRole(
+                "ADMIN",
+                "Member Approved",
+                user.getFullName() + " was approved as " + user.getRole().name(),
+                "MEMBER",
+                "AdminApproval",
+                null
+        );
+
         return "User approved successfully as " + user.getRole().name();
     }
 
+    // Reject a pending member
     public String rejectMember(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
@@ -51,6 +68,7 @@ public class AdminService {
         return "User rejected successfully";
     }
 
+    // Get all approved/inactive members
     public List<UserApprovalResponse> getAllApprovedMembers() {
         return userRepository.findByStatusIn(List.of(UserStatus.APPROVED, UserStatus.INACTIVE))
                 .stream()
@@ -64,6 +82,7 @@ public class AdminService {
                 .toList();
     }
 
+    // Update role for approved member
     public String updateMemberRole(Long userId, Role role) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
@@ -78,6 +97,7 @@ public class AdminService {
         return "User role updated to " + role.name();
     }
 
+    // Deactivate an approved user
     public String deactivateUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -88,6 +108,7 @@ public class AdminService {
         return "User deactivated successfully";
     }
 
+    // Activate an inactive user
     public String activateUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

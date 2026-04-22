@@ -31,13 +31,14 @@ public class MatchService {
     private final LeagueRepository leagueRepository;
     private final AvailabilityRepository availabilityRepository;
     private final MatchSquadRepository matchSquadRepository;
+    private final NotificationService notificationService;
 
     // Create match using flexible team/opponent structure
     public MatchResponse createMatch(String email, MatchRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
-        Team homeTeam = null;
+        Team homeTeam;
         Team awayTeam = null;
         League league = null;
 
@@ -45,28 +46,23 @@ public class MatchService {
             throw new RuntimeException("Home team is required");
         }
 
-        // Home team required
         homeTeam = teamRepository.findById(request.getHomeTeamId())
                 .orElseThrow(() -> new RuntimeException("Home team not found"));
 
-        // Away team optional
         if (request.getAwayTeamId() != null) {
             awayTeam = teamRepository.findById(request.getAwayTeamId())
                     .orElseThrow(() -> new RuntimeException("Away team not found"));
         }
 
-        // League optional
         if (request.getLeagueId() != null) {
             league = leagueRepository.findById(request.getLeagueId())
                     .orElseThrow(() -> new RuntimeException("League not found"));
         }
 
-        // Prevent same team vs same team
         if (awayTeam != null && homeTeam.getId().equals(awayTeam.getId())) {
             throw new RuntimeException("Home team and away team cannot be the same");
         }
 
-        // Validate opponent setup
         boolean hasAwayTeam = awayTeam != null;
         boolean hasExternalOpponent =
                 request.getExternalOpponentName() != null &&
@@ -108,17 +104,27 @@ public class MatchService {
         match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setCreatedBy(user.getFullName());
         match.setMatchFee(request.getMatchFee());
-        // Save optional squad fee config on the match
         match.setMatchFeeAmount(request.getMatchFeeAmount());
         match.setMatchFeeDueDate(request.getMatchFeeDueDate());
         match.setMatchFeeDescription(request.getMatchFeeDescription());
         match.setStatus(request.getStatus() != null ? request.getStatus() : MatchStatus.UPCOMING);
 
+        // save match first
         Match savedMatch = matchRepository.save(match);
 
-        Availability availability = availabilityRepository
-                .findByMatchIdAndUserId(savedMatch.getId(), user.getId())
-                .orElse(null);
+        // build opponent text
+        String opponentName = awayTeam != null
+                ? awayTeam.getTeamName()
+                : savedMatch.getExternalOpponentName();
+
+        // create notification for all users
+        notificationService.createForAllUsers(
+                "New Match Added",
+                homeTeam.getTeamName() + " vs " + opponentName,
+                "MATCH",
+                "MatchDetails",
+                savedMatch.getId()
+        );
 
         return new MatchResponse(
                 savedMatch.getId(),
@@ -140,7 +146,7 @@ public class MatchService {
                 savedMatch.getMatchFeeAmount(),
                 savedMatch.getMatchFeeDueDate(),
                 savedMatch.getMatchFeeDescription(),
-                availability != null ? availability.getStatus() : null
+                null
         );
     }
 
@@ -300,7 +306,6 @@ public class MatchService {
         match.setMatchFormat(request.getMatchFormat().trim());
         match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setMatchFee(request.getMatchFee());
-        // Update optional match fee config
         match.setMatchFeeAmount(request.getMatchFeeAmount());
         match.setMatchFeeDueDate(request.getMatchFeeDueDate());
         match.setMatchFeeDescription(request.getMatchFeeDescription());
@@ -309,7 +314,19 @@ public class MatchService {
             match.setStatus(request.getStatus());
         }
 
-        matchRepository.save(match);
+        Match savedMatch = matchRepository.save(match);
+
+        String opponentName = awayTeam != null
+                ? awayTeam.getTeamName()
+                : savedMatch.getExternalOpponentName();
+
+        notificationService.createForAllUsers(
+                "Match Updated",
+                homeTeam.getTeamName() + " vs " + opponentName,
+                "MATCH",
+                "MatchDetails",
+                savedMatch.getId()
+        );
 
         return "Match updated successfully";
     }
