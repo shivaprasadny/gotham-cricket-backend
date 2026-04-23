@@ -42,6 +42,10 @@ public class AdminService {
         user.setStatus(UserStatus.APPROVED);
         user.setRole(role != null ? role : Role.PLAYER);
 
+        if (user.getJoinedClubDate() == null) {
+            user.setJoinedClubDate(java.time.LocalDate.now());
+        }
+
         userRepository.save(user);
 
         // Notify admins only that a member was approved
