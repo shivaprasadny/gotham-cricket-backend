@@ -147,4 +147,26 @@ public class EventService {
                 ))
                 .toList();
     }
+    public EventResponse getEventById(Long id, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+        EventAvailability availability = eventAvailabilityRepository
+                .findByEventIdAndUserId(id, user.getId())
+                .orElse(null);
+
+        return new EventResponse(
+                event.getId(),
+                event.getTitle(),
+                event.getDescription(),
+                event.getEventDate(),
+                event.getLocation(),
+                event.getCreatedBy(),
+                event.getCreatedAt(),
+                availability != null ? availability.getStatus() : null
+        );
+    }
 }

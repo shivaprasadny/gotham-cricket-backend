@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -64,4 +65,9 @@ public class EventController {
     public List<EventAvailabilityResponse> getEventAvailability(@PathVariable Long eventId) {
         return eventService.getEventAvailability(eventId);
     }
+    @GetMapping("/{id}")
+    public EventResponse getEventById(@PathVariable Long id, Principal principal) {
+        return eventService.getEventById(id, principal.getName());
+    }
+
 }
