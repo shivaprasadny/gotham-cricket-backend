@@ -23,6 +23,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final EventAvailabilityRepository eventAvailabilityRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     // Create a new club event
     public String createEvent(String email, CreateEventRequest request) {
@@ -37,6 +38,13 @@ public class EventService {
         event.setCreatedBy(user.getFullName());
 
         eventRepository.save(event);
+        notificationService.createForAllApprovedUsers(
+                "New Event Added",
+                event.getTitle() + " at " + event.getLocation(),
+                "EVENT",
+                "Events",
+                event.getId()
+        );
 
         return "Event created successfully";
     }
@@ -78,6 +86,13 @@ public class EventService {
         event.setLocation(request.getLocation());
 
         eventRepository.save(event);
+        notificationService.createForAllApprovedUsers(
+                "Event Updated",
+                event.getTitle() + " at " + event.getLocation(),
+                "EVENT",
+                "Events",
+                event.getId()
+        );
 
         return "Event updated successfully";
     }

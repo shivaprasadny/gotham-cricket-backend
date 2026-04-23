@@ -4,6 +4,8 @@ import com.gotham.cricket.dto.CreateLeagueRequest;
 import com.gotham.cricket.dto.LeagueResponse;
 import com.gotham.cricket.entity.League;
 import com.gotham.cricket.repository.LeagueRepository;
+import com.gotham.cricket.repository.MatchRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +16,7 @@ import java.util.List;
 public class LeagueService {
 
     private final LeagueRepository leagueRepository;
+    private final MatchRepository matchRepository;
 
     // Create new league
     public String createLeague(CreateLeagueRequest request) {
@@ -84,9 +87,16 @@ public class LeagueService {
     }
 
     // Delete league
-    public String deleteLeague(Long id) {
-        League league = leagueRepository.findById(id)
+    @Transactional
+    public String deleteLeague(Long leagueId) {
+        League league = leagueRepository.findById(leagueId)
                 .orElseThrow(() -> new RuntimeException("League not found"));
+
+        boolean usedInMatches = matchRepository.existsByLeagueId(leagueId);
+
+        if (usedInMatches) {
+            throw new RuntimeException("Cannot delete league. League is used in one or more matches.");
+        }
 
         leagueRepository.delete(league);
 

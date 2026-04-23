@@ -60,7 +60,7 @@ public class EventController {
     }
 
     @GetMapping("/{eventId}/availability")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+
     public List<EventAvailabilityResponse> getEventAvailability(@PathVariable Long eventId) {
         return eventService.getEventAvailability(eventId);
     }

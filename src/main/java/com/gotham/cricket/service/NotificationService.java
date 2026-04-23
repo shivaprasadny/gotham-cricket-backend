@@ -155,4 +155,20 @@ public class NotificationService {
 
         createForUserIds(userIds, title, message, type, targetScreen, targetId);
     }
+    public void createForAllApprovedUsers(
+            String title,
+            String message,
+            String type,
+            String targetScreen,
+            Long targetId
+    ) {
+        List<User> users = userRepository.findAll().stream()
+                .filter(user -> user.getStatus() != null)
+                .filter(user -> user.getStatus().name().equals("APPROVED"))
+                .toList();
+
+        List<Long> userIds = users.stream().map(User::getId).toList();
+
+        createForUserIds(userIds, title, message, type, targetScreen, targetId);
+    }
 }

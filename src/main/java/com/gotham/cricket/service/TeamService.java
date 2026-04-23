@@ -7,10 +7,8 @@ import com.gotham.cricket.entity.MemberProfile;
 import com.gotham.cricket.entity.Team;
 import com.gotham.cricket.entity.TeamMember;
 import com.gotham.cricket.entity.User;
-import com.gotham.cricket.repository.MemberProfileRepository;
-import com.gotham.cricket.repository.TeamMemberRepository;
-import com.gotham.cricket.repository.TeamRepository;
-import com.gotham.cricket.repository.UserRepository;
+import com.gotham.cricket.repository.*;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +29,7 @@ public class TeamService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final MemberProfileRepository memberProfileRepository;
+    private final MatchRepository matchRepository;
 
     public String createTeam(TeamRequest request) {
         if (teamRepository.existsByTeamName(request.getTeamName())) {
@@ -164,11 +163,26 @@ public class TeamService {
         return "Team updated successfully";
     }
 
+    @Transactional
     public String deleteTeam(Long teamId) {
         Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new RuntimeException("Team not found with id: " + teamId));
+                .orElseThrow(() -> new RuntimeException("Team not found"));
+
+        long memberCount = teamMemberRepository.countByTeamId(teamId);
+
+        boolean usedInMatches =
+                matchRepository.existsByHomeTeam_IdOrAwayTeam_Id(teamId, teamId);
+
+        if (memberCount > 0) {
+            throw new RuntimeException("Cannot delete team. Remove all team members first.");
+        }
+
+        if (usedInMatches) {
+            throw new RuntimeException("Cannot delete team. Team is used in one or more matches.");
+        }
 
         teamRepository.delete(team);
+
         return "Team deleted successfully";
     }
 
