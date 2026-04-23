@@ -37,4 +37,8 @@ public class MemberProfile {
 
     @Column(name = "jersey_number")
     private Integer jerseyNumber;
+@Column
+    private String gender;
+    @Column
+private String dateOfBirth;
 }

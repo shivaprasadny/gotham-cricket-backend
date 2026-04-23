@@ -35,7 +35,12 @@ public class ProfileService {
                 profile.getBattingStyle(),
                 profile.getBowlingStyle(),
                 profile.getPlayerType(),
-                profile.getJerseyNumber()
+                profile.getJerseyNumber(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getGender(),
+                user.getDateOfBirth(),
+                user.getJoinedClubDate()
         );
     }
 
@@ -46,6 +51,7 @@ public class ProfileService {
         MemberProfile profile = memberProfileRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Profile not found for user email: " + email));
 
+        // Update member profile fields
         profile.setNickname(request.getNickname());
         profile.setPhone(request.getPhone());
         profile.setBattingStyle(request.getBattingStyle());
@@ -53,6 +59,27 @@ public class ProfileService {
         profile.setPlayerType(request.getPlayerType());
         profile.setJerseyNumber(request.getJerseyNumber());
 
+        // Update user table fields
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+
+        user.setFullName((user.getFirstName() + " " + user.getLastName()).trim());
+
+        if (request.getGender() != null) {
+            user.setGender(request.getGender());
+        }
+
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank()) {
+            user.setDateOfBirth(java.time.LocalDate.parse(request.getDateOfBirth()));
+        }
+
+        // Save both entities
+        userRepository.save(user);
         memberProfileRepository.save(profile);
 
         return "Profile updated successfully";
