@@ -21,8 +21,20 @@ public class AuthController {
         return authService.register(request);
     }
 
+//    @PostMapping("/login")
+//    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+//        return authService.login(request);
+//    }
+
+
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+    public LoginResponse login(@RequestBody LoginRequest request) {
+
+        System.out.println("🔥 LOGIN API HIT FROM MOBILE");
+        System.out.println("Email: " + request.getEmail());
+
         return authService.login(request);
     }
+
+
 }
