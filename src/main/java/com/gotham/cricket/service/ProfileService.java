@@ -21,8 +21,11 @@ public class ProfileService {
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
         MemberProfile profile = memberProfileRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Profile not found for user email: " + email));
-
+                .orElseGet(() -> {
+                    MemberProfile newProfile = new MemberProfile();
+                    newProfile.setUser(user);
+                    return memberProfileRepository.save(newProfile);
+                });
         return new ProfileResponse(
                 user.getId(),
                 user.getFullName(),
@@ -49,8 +52,11 @@ public class ProfileService {
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
         MemberProfile profile = memberProfileRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Profile not found for user email: " + email));
-
+                .orElseGet(() -> {
+                    MemberProfile newProfile = new MemberProfile();
+                    newProfile.setUser(user);
+                    return memberProfileRepository.save(newProfile);
+                });
         // Update member profile fields
         profile.setNickname(request.getNickname());
         profile.setPhone(request.getPhone());

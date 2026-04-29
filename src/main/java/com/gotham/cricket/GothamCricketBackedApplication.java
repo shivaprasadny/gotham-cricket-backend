@@ -1,8 +1,10 @@
 package com.gotham.cricket;
 
+import com.gotham.cricket.entity.MemberProfile;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.enums.UserStatus;
+import com.gotham.cricket.repository.MemberProfileRepository;
 import com.gotham.cricket.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -22,25 +24,43 @@ public class GothamCricketBackedApplication {
 
 
     @Bean
-    public CommandLineRunner createAdmin(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public CommandLineRunner createAdmin(
+            UserRepository userRepository,
+            MemberProfileRepository memberProfileRepository,
+            PasswordEncoder passwordEncoder
+    ) {
         return args -> {
 
-            if (userRepository.findByEmail("shiva_prem14@hotmail.com").isEmpty()) {
+            User admin = userRepository.findByEmail("shiva_prem14@hotmail.com")
+                    .orElseGet(() -> {
+                        User newAdmin = new User();
+                        newAdmin.setFirstName("shiva");
+                        newAdmin.setLastName("prasad");
+                        newAdmin.setFullName("shiva prasad");
+                        newAdmin.setEmail("shiva_prem14@hotmail.com");
+                        newAdmin.setPassword(passwordEncoder.encode("admin123"));
+                        newAdmin.setRole(Role.ADMIN);
+                        newAdmin.setStatus(UserStatus.APPROVED);
 
-                User admin = new User();
-                admin.setFirstName("shiva");
-                admin.setLastName("prasad");
-                admin.setFullName("shiva prasad");
-                admin.setEmail("shiva_prem14@hotmail.com");
-                admin.setPassword(passwordEncoder.encode("admin123"));
-                admin.setRole(Role.ADMIN);
-                admin.setStatus(UserStatus.APPROVED);
+                        User savedAdmin = userRepository.save(newAdmin);
+                        System.out.println("✅ Admin user created successfully");
+                        return savedAdmin;
+                    });
 
-                userRepository.save(admin);
+            if (memberProfileRepository.findByUserId(admin.getId()).isEmpty()) {
+                MemberProfile profile = new MemberProfile();
+                profile.setUser(admin);
+                profile.setNickname("Shiva");
+                profile.setPhone("");
+                profile.setBattingStyle("");
+                profile.setBowlingStyle("");
+                profile.setPlayerType("");
+                profile.setJerseyNumber(null);
 
-                System.out.println("✅ Admin user created successfully");
+                memberProfileRepository.save(profile);
+                System.out.println("✅ Admin member profile created successfully");
             } else {
-                System.out.println("ℹ️ Admin already exists");
+                System.out.println("ℹ️ Admin member profile already exists");
             }
         };
     }
