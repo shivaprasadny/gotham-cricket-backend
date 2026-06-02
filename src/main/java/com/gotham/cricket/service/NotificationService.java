@@ -9,6 +9,8 @@ import com.gotham.cricket.repository.NotificationRepository;
 import com.gotham.cricket.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.gotham.cricket.entity.PushToken;
+import com.gotham.cricket.repository.PushTokenRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +22,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final UserRepository userRepository;
+    private final PushTokenRepository pushTokenRepository;
 
     // Get notifications for logged-in user
     public List<NotificationResponse> getMyNotifications(String email) {
@@ -170,5 +173,24 @@ public class NotificationService {
         List<Long> userIds = users.stream().map(User::getId).toList();
 
         createForUserIds(userIds, title, message, type, targetScreen, targetId);
+    }
+
+    public String savePushToken(String email, String token) {
+
+        if (token == null || token.isBlank()) {
+            throw new RuntimeException("Push token is required");
+        }
+
+        PushToken pushToken = pushTokenRepository.findByUserEmail(email)
+                .orElse(new PushToken());
+
+        pushToken.setUserEmail(email);
+
+        // IMPORTANT
+        pushToken.setExpoPushToken(token);
+
+        pushTokenRepository.save(pushToken);
+
+        return "Push token saved successfully";
     }
 }

@@ -29,8 +29,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/announcements/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/matches/**").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/test/**").permitAll()
                         .anyRequest().authenticated()
                 )
+
+
+
+
+
+
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )

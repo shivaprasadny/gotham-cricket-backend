@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
+import com.gotham.cricket.dto.PushTokenRequest;
 import java.util.List;
 
 @RestController
@@ -44,4 +44,13 @@ public class NotificationController {
     public String clearAll(Authentication authentication) {
         return notificationService.clearMyNotifications(authentication.getName());
     }
+    @PostMapping("/token")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
+    public String savePushToken(
+            @RequestBody PushTokenRequest request,
+            Authentication authentication
+    ) {
+        return notificationService.savePushToken(authentication.getName(), request.getToken());
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.gotham.cricket.repository;
 
+import com.gotham.cricket.entity.EmailVerificationToken;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,4 +15,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByStatus(UserStatus status);
 
     List<User> findByStatusIn(List<UserStatus> statuses);
+
 }
