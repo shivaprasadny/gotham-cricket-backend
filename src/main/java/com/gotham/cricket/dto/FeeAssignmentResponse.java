@@ -42,4 +42,5 @@ public class FeeAssignmentResponse {
     private String waiverReason;
     private LocalDateTime lastReminderSentAt;
     private Integer reminderCount;
+
 }

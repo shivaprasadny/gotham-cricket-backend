@@ -30,12 +30,13 @@ public class AnnouncementService {
 
         announcementRepository.save(announcement);
 
+        // Send in-app notification + mobile push notification
         notificationService.createForAllUsers(
                 "Announcement Posted",
                 request.getTitle(),
                 "ANNOUNCEMENT",
-                "Announcements",
-                null
+                "AnnouncementDetails",
+                announcement.getId()
         );
 
         return "Announcement created successfully";

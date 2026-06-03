@@ -12,8 +12,7 @@ import org.springframework.stereotype.Service;
 import com.gotham.cricket.entity.PushToken;
 import com.gotham.cricket.repository.PushTokenRepository;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +22,8 @@ public class NotificationService {
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final UserRepository userRepository;
     private final PushTokenRepository pushTokenRepository;
+    // Service used to send real mobile push notifications through Expo
+    private final ExpoPushService expoPushService;
 
     // Get notifications for logged-in user
     public List<NotificationResponse> getMyNotifications(String email) {
@@ -89,7 +90,12 @@ public class NotificationService {
         return "Notifications cleared";
     }
 
+
+
+
+
     // Create notifications for specific users
+// This saves notification in DB AND sends mobile push notification
     public void createForUserIds(
             List<Long> userIds,
             String title,
@@ -98,10 +104,12 @@ public class NotificationService {
             String targetScreen,
             Long targetId
     ) {
+        // If no users selected, do nothing
         if (userIds == null || userIds.isEmpty()) {
             return;
         }
 
+        // Create main notification record
         Notification notification = new Notification();
         notification.setTitle(title);
         notification.setMessage(message);
@@ -109,22 +117,45 @@ public class NotificationService {
         notification.setTargetScreen(targetScreen);
         notification.setTargetId(targetId);
 
+        // Save notification once
         Notification savedNotification = notificationRepository.save(notification);
 
+        // Load users who should receive this notification
         List<User> users = userRepository.findAllById(userIds);
+
+        // Prepare recipient rows for in-app notification list
         List<NotificationRecipient> recipients = new ArrayList<>();
 
         for (User user : users) {
+            // Create recipient row for each user
             NotificationRecipient row = new NotificationRecipient();
             row.setNotification(savedNotification);
             row.setUser(user);
             row.setIsRead(false);
             row.setIsDeleted(false);
             recipients.add(row);
+
+            // Extra data sent with push notification
+            // Frontend will use this later for tap navigation
+            Map<String, Object> pushData = new HashMap<>();
+            pushData.put("notificationId", savedNotification.getId());
+            pushData.put("type", type);
+            pushData.put("targetScreen", targetScreen);
+            pushData.put("targetId", targetId);
+
+            // Send real mobile push notification to this user
+            expoPushService.sendToUser(
+                    user.getEmail(),
+                    title,
+                    message,
+                    pushData
+            );
         }
 
+        // Save all in-app notification recipients
         notificationRecipientRepository.saveAll(recipients);
     }
+
 
     // Create notification for all users
     public void createForAllUsers(
@@ -175,20 +206,37 @@ public class NotificationService {
         createForUserIds(userIds, title, message, type, targetScreen, targetId);
     }
 
+    // Save Expo push token for logged-in user
     public String savePushToken(String email, String token) {
 
+        // Validate token
         if (token == null || token.isBlank()) {
             throw new RuntimeException("Push token is required");
         }
 
-        PushToken pushToken = pushTokenRepository.findByUserEmail(email)
-                .orElse(new PushToken());
+        // Check if this exact device token already exists
+        Optional<PushToken> existingToken =
+                pushTokenRepository.findByExpoPushToken(token);
 
-        pushToken.setUserEmail(email);
+        PushToken pushToken;
 
-        // IMPORTANT
-        pushToken.setExpoPushToken(token);
+        // If token already exists, update existing row
+        if (existingToken.isPresent()) {
 
+            pushToken = existingToken.get();
+
+            // Update latest user email
+            pushToken.setUserEmail(email);
+
+        } else {
+
+            // Create new device token row
+            pushToken = new PushToken();
+            pushToken.setUserEmail(email);
+            pushToken.setExpoPushToken(token);
+        }
+
+        // Save token row
         pushTokenRepository.save(pushToken);
 
         return "Push token saved successfully";

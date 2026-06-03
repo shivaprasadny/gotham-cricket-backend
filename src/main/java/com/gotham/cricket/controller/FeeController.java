@@ -35,10 +35,12 @@ public class FeeController {
         return feeService.getAllFeeDefinitions();
     }
 
-    // Admin/captain gets one fee definition
+    // Admin/captain gets one fee definition with assignments
     @GetMapping("/{feeDefinitionId}")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    public FeeDefinitionResponse getFeeDefinitionById(@PathVariable Long feeDefinitionId) {
+    public FeeDefinitionDetailResponse getFeeDefinitionById(
+            @PathVariable Long feeDefinitionId
+    ) {
         return feeService.getFeeDefinitionById(feeDefinitionId);
     }
 
@@ -132,4 +134,13 @@ public class FeeController {
     ) {
         return feeService.createSplitFee(authentication.getName(), request);
     }
+    @PutMapping("/{feeDefinitionId}/split")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String updateSplitFee(
+            @PathVariable Long feeDefinitionId,
+            @Valid @RequestBody CreateSplitFeeRequest request
+    ) {
+        return feeService.updateSplitFee(feeDefinitionId, request);
+    }
+
 }

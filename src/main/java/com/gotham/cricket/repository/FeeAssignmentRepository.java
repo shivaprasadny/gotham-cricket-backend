@@ -41,4 +41,10 @@ public interface FeeAssignmentRepository extends JpaRepository<FeeAssignment, Lo
      * Find all assignments for one user by status list can be added later if needed.
      */
     long countByUserAndStatus(User user, FeeStatus status);
+
+    // Get all unpaid fee assignments
+    List<FeeAssignment> findByStatus(FeeStatus status);
+
+    // Get fee assignments by multiple statuses
+    List<FeeAssignment> findByStatusIn(List<FeeStatus> statuses);
 }

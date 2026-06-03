@@ -2,6 +2,7 @@ package com.gotham.cricket.repository;
 
 import com.gotham.cricket.entity.Availability;
 import com.gotham.cricket.entity.Match;
+import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.AvailabilityStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -27,6 +28,9 @@ public interface AvailabilityRepository extends JpaRepository<Availability, Long
     void deleteByMatchId(@Param("matchId") Long matchId);
 
     long countByMatchAndStatus(Match match, AvailabilityStatus status);
+
+    // Check if user already marked availability for this match
+    boolean existsByUserAndMatch(User user, Match match);
 
 
 }

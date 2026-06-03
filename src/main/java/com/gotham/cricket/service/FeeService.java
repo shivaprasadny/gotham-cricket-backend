@@ -1,9 +1,6 @@
 package com.gotham.cricket.service;
 
-import com.gotham.cricket.dto.CreateFeeRequest;
-import com.gotham.cricket.dto.FeeAssignmentResponse;
-import com.gotham.cricket.dto.FeeDefinitionResponse;
-import com.gotham.cricket.dto.FeeSummaryResponse;
+import com.gotham.cricket.dto.*;
 import com.gotham.cricket.entity.FeeAssignment;
 import com.gotham.cricket.entity.FeeDefinition;
 import com.gotham.cricket.entity.TeamMember;
@@ -28,8 +25,7 @@ import com.gotham.cricket.enums.FeeAssignmentType;
 import com.gotham.cricket.enums.FeeType;
 import com.gotham.cricket.repository.MatchRepository;
 import com.gotham.cricket.repository.MatchSquadRepository;
-import com.gotham.cricket.dto.CreateSplitFeeRequest;
-import com.gotham.cricket.dto.PlayerFeeSplitItem;
+
 /**
  * Service layer for fee management.
  *
@@ -62,6 +58,10 @@ public class FeeService {
      *
      * We'll add squad/event-based assignment later.
      */
+
+
+
+
     @Transactional
     public String createFee(String email, CreateFeeRequest request) {
         User creator = userRepository.findByEmail(email)
@@ -92,34 +92,48 @@ public class FeeService {
 
         for (User user : targetUsers) {
             FeeAssignment assignment = new FeeAssignment();
+
+            // Connect this assignment to the master fee definition
             assignment.setFeeDefinition(feeDefinition);
+
+            // Assign fee to this specific user
             assignment.setUser(user);
+
+            // Store individual fee amount and due date
             assignment.setAmount(request.getAmount());
             assignment.setDueDate(request.getDueDate());
+
+            // New fee starts as unpaid
             assignment.setStatus(FeeStatus.UNPAID);
 
             assignments.add(assignment);
         }
 
+        // Save all individual fee assignments
         feeAssignmentRepository.saveAll(assignments);
 
-// Build assigned user id list
-        List<Long> assignedUserIds = assignments.stream()
-                .map(assignment -> assignment.getUser().getId())
-                .toList();
+        // Send notification only to users who received this fee
+        for (FeeAssignment assignment : assignments) {
 
-// Notify only users who got the fee
-        notificationService.createForUserIds(
-                assignedUserIds,
-                "New Fee Assigned",
-                feeDefinition.getTitle() + " - $" + feeDefinition.getAmount(),
-                "FEE",
-                "MyFees",
-                null
-        );
+            // Get the assigned user's ID
+            Long assignedUserId = assignment.getUser().getId();
+
+            // Send notification only to this one user
+            // targetId is assignment.getId(), so frontend can open this user's individual fee
+            notificationService.createForUserIds(
+                    List.of(assignedUserId),
+                    "New Fee Assigned",
+                    "You need to pay $" + assignment.getAmount() + " for " + feeDefinition.getTitle(),
+                    "FEE",
+                    "MyFees",
+                    assignment.getId()
+            );
+        }
 
         return "Fee created and assigned successfully";
     }
+
+
 
     /**
      * Returns all fee definitions for admin/captain list screen.
@@ -134,12 +148,7 @@ public class FeeService {
     /**
      * Returns one fee definition by id.
      */
-    public FeeDefinitionResponse getFeeDefinitionById(Long feeDefinitionId) {
-        FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
-                .orElseThrow(() -> new RuntimeException("Fee definition not found"));
 
-        return mapFeeDefinitionToResponse(feeDefinition);
-    }
 
     /**
      * Returns all user assignments under one fee definition.
@@ -516,11 +525,15 @@ public class FeeService {
     }
 
     // Update one fee definition
+
+
+
     @Transactional
     public String updateFee(Long feeDefinitionId, CreateFeeRequest request) {
         FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
                 .orElseThrow(() -> new RuntimeException("Fee definition not found"));
 
+        // Update master fee definition
         feeDefinition.setTitle(request.getTitle());
         feeDefinition.setFeeType(request.getFeeType());
         feeDefinition.setAmount(request.getAmount());
@@ -534,18 +547,40 @@ public class FeeService {
 
         feeDefinitionRepository.save(feeDefinition);
 
-        // Update all child assignments with latest amount + due date
-        List<FeeAssignment> assignments = feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
+        // Get all user assignments for this fee
+        List<FeeAssignment> assignments =
+                feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
 
+        // Update each assigned user's fee and notify them
         for (FeeAssignment assignment : assignments) {
+
+            // Update this user's amount and due date
             assignment.setAmount(request.getAmount());
             assignment.setDueDate(request.getDueDate());
+
+            // Notify only this assigned user
+            notificationService.createForUserIds(
+                    List.of(assignment.getUser().getId()),
+                    "Fee Updated",
+                    "Your fee was updated: "
+                            + feeDefinition.getTitle()
+                            + " - $"
+                            + assignment.getAmount(),
+                    "FEE",
+                    "MyFees",
+                    assignment.getId()
+            );
         }
 
+        // Save all updated assignments
         feeAssignmentRepository.saveAll(assignments);
 
         return "Fee updated successfully";
     }
+
+
+
+
 
     // Delete one fee definition and all assignments under it
     @Transactional
@@ -630,21 +665,149 @@ public class FeeService {
 
         feeAssignmentRepository.saveAll(assignments);
 
-// Build assigned user id list
-        List<Long> assignedUserIds = assignments.stream()
-                .map(assignment -> assignment.getUser().getId())
-                .toList();
+// Send one notification per user so each user sees their own amount
+        for (FeeAssignment assignment : assignments) {
 
-// Notify only users who got this split fee
-        notificationService.createForUserIds(
-                assignedUserIds,
-                "New Fee Assigned",
-                feeDefinition.getTitle() + " - $" + feeDefinition.getAmount(),
-                "FEE",
-                "MyFees",
-                null
-        );
+            // Get this assigned user's ID
+            Long assignedUserId = assignment.getUser().getId();
+
+            // Send notification only to this user
+            // Message uses assignment.getAmount(), not feeDefinition.getAmount()
+            // targetId uses assignment.getId(), so frontend can open this user's individual fee later
+            notificationService.createForUserIds(
+                    List.of(assignedUserId),
+                    "New Fee Assigned",
+                    "You need to pay $" + assignment.getAmount()
+                            + " for " + feeDefinition.getTitle(),
+                    "FEE",
+                    "MyFees",
+                    assignment.getId()
+            );
+        }
 
         return "Custom split fee created successfully";
     }
+
+
+    public FeeDefinitionDetailResponse getFeeDefinitionById(Long feeDefinitionId) {
+
+        FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
+                .orElseThrow(() -> new RuntimeException("Fee definition not found"));
+
+        List<FeeAssignment> assignments =
+                feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
+
+        List<FeeAssignmentResponse> assignmentResponses = assignments.stream()
+                .map(assignment -> new FeeAssignmentResponse(
+                        assignment.getId(),
+                        feeDefinition.getId(),
+                        assignment.getUser().getId(),
+                        assignment.getUser().getFullName(),
+                        feeDefinition.getTitle(),
+                        feeDefinition.getFeeType(),
+                        assignment.getAmount(),
+                        feeDefinition.getDueDate(),
+                        feeDefinition.getDescription(),
+                        feeDefinition.getMatchId(),
+                        feeDefinition.getEventId(),
+                        feeDefinition.getTeamId(),
+                        feeDefinition.getSeason(),
+                        assignment.getStatus(),
+                        assignment.getPaymentMethod(),
+                        assignment.getPaymentNote(),
+                        assignment.getAssignedAt(),
+                        assignment.getSubmittedAt(),
+                        assignment.getConfirmedAt(),
+                        assignment.getConfirmedBy(),
+                        assignment.getWaivedAt(),
+                        assignment.getWaiverReason(),
+                        assignment.getLastReminderSentAt(),
+                        assignment.getReminderCount()
+                ))
+                .toList();
+
+        return FeeDefinitionDetailResponse.builder()
+                .id(feeDefinition.getId())
+                .title(feeDefinition.getTitle())
+                .feeType(feeDefinition.getFeeType())
+                .amount(feeDefinition.getAmount())
+                .dueDate(feeDefinition.getDueDate())
+                .description(feeDefinition.getDescription())
+                .assignments(assignmentResponses)
+                .build();
+    }
+
+
+    @Transactional
+    public String updateSplitFee(Long feeDefinitionId, CreateSplitFeeRequest request) {
+
+        FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
+                .orElseThrow(() -> new RuntimeException("Fee definition not found"));
+
+        feeDefinition.setTitle(request.getTitle());
+        feeDefinition.setFeeType(request.getFeeType());
+        feeDefinition.setDueDate(request.getDueDate());
+        feeDefinition.setDescription(request.getDescription());
+        feeDefinition.setMatchId(request.getMatchId());
+        feeDefinition.setEventId(request.getEventId());
+        feeDefinition.setTeamId(request.getTeamId());
+        feeDefinition.setSeason(request.getSeason());
+        feeDefinition.setAssignmentType(FeeAssignmentType.SELECTED_USERS);
+
+        double totalAmount = request.getSplits()
+                .stream()
+                .filter(split -> split.getAmount() != null && split.getAmount() > 0)
+                .mapToDouble(PlayerFeeSplitItem::getAmount)
+                .sum();
+
+        feeDefinition.setAmount(totalAmount);
+        feeDefinitionRepository.save(feeDefinition);
+
+        List<FeeAssignment> oldAssignments =
+                feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
+
+        feeAssignmentRepository.deleteAll(oldAssignments);
+
+        List<FeeAssignment> newAssignments = new ArrayList<>();
+
+        for (PlayerFeeSplitItem split : request.getSplits()) {
+            if (split.getUserId() == null || split.getAmount() == null || split.getAmount() <= 0) {
+                continue;
+            }
+
+            User user = userRepository.findById(split.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + split.getUserId()));
+
+            FeeAssignment assignment = new FeeAssignment();
+            assignment.setFeeDefinition(feeDefinition);
+            assignment.setUser(user);
+            assignment.setAmount(split.getAmount());
+            assignment.setDueDate(request.getDueDate());
+            assignment.setStatus(FeeStatus.UNPAID);
+
+            newAssignments.add(assignment);
+        }
+
+        feeAssignmentRepository.saveAll(newAssignments);
+
+
+
+        // Notify all users in updated split
+        for (FeeAssignment assignment : newAssignments) {
+            notificationService.createForUserIds(
+                    List.of(assignment.getUser().getId()),
+                    "Fee Updated",
+                    "Your fee was updated: $"
+                            + assignment.getAmount()
+                            + " for "
+                            + feeDefinition.getTitle(),
+                    "FEE",
+                    "MyFees",
+                    assignment.getId()
+            );
+        }
+
+        return "Fee updated successfully";
+    }
+
 }

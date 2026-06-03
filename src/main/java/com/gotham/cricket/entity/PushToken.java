@@ -16,9 +16,10 @@ public class PushToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_email", nullable = false, unique = true)
+    @Column(name = "user_email", nullable = false)
     private String userEmail;
 
-    @Column(name = "expo_push_token", nullable = false, length = 255)
+    // Each device token should be unique
+    @Column(name = "expo_push_token", nullable = false, unique = true, length = 255)
     private String expoPushToken;
 }

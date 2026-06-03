@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.gotham.cricket.dto.PushTokenRequest;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -52,5 +53,22 @@ public class NotificationController {
     ) {
         return notificationService.savePushToken(authentication.getName(), request.getToken());
     }
+
+//    // Save Expo push token for logged-in user
+//    @PostMapping("/token")
+//    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
+//    public String savePushToken(
+//            @RequestBody Map<String, String> request,
+//            Authentication authentication
+//    ) {
+//        // Logged-in user's email from JWT
+//        String email = authentication.getName();
+//
+//        // Token sent from mobile app
+//        String token = request.get("token");
+//
+//        // Save token in database
+//        return notificationService.savePushToken(email, token);
+//    }
 
 }
