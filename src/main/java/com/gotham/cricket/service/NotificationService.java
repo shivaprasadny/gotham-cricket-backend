@@ -207,6 +207,7 @@ public class NotificationService {
     }
 
     // Save Expo push token for logged-in user
+    // Save Expo push token for logged-in user
     public String savePushToken(String email, String token) {
 
         // Validate token
@@ -214,29 +215,34 @@ public class NotificationService {
             throw new RuntimeException("Push token is required");
         }
 
-        // Check if this exact device token already exists
-        Optional<PushToken> existingToken =
-                pushTokenRepository.findByExpoPushToken(token);
+        // Remove old rows using this token
+        List<PushToken> allTokens = pushTokenRepository.findAll();
 
-        PushToken pushToken;
+        for (PushToken row : allTokens) {
 
-        // If token already exists, update existing row
-        if (existingToken.isPresent()) {
+            // Same physical device token found
+            if (token.equals(row.getExpoPushToken())) {
 
-            pushToken = existingToken.get();
+                // If same account already has token -> nothing to do
+                if (email.equals(row.getUserEmail())) {
+                    return "Push token already exists";
+                }
 
-            // Update latest user email
-            pushToken.setUserEmail(email);
+                // Different account using same device
+                // Update existing row to latest logged-in user
+                row.setUserEmail(email);
 
-        } else {
+                pushTokenRepository.save(row);
 
-            // Create new device token row
-            pushToken = new PushToken();
-            pushToken.setUserEmail(email);
-            pushToken.setExpoPushToken(token);
+                return "Push token updated successfully";
+            }
         }
 
-        // Save token row
+        // Create completely new token row
+        PushToken pushToken = new PushToken();
+        pushToken.setUserEmail(email);
+        pushToken.setExpoPushToken(token);
+
         pushTokenRepository.save(pushToken);
 
         return "Push token saved successfully";
