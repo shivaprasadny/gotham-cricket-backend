@@ -6,6 +6,7 @@ import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.enums.UserStatus;
 import com.gotham.cricket.repository.MemberProfileRepository;
 import com.gotham.cricket.repository.UserRepository;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,6 +14,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+
+@OpenAPIDefinition
 @SpringBootApplication
 @EnableScheduling
 public class GothamCricketBackedApplication {

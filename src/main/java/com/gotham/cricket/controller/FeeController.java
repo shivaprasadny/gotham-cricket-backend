@@ -143,4 +143,15 @@ public class FeeController {
         return feeService.updateSplitFee(feeDefinitionId, request);
     }
 
+
+    // Admin/captain sends push reminder to unpaid members for one fee
+    @PostMapping("/{feeDefinitionId}/send-reminder")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
+    public String sendFeeReminder(
+            @PathVariable Long feeDefinitionId,
+            Authentication authentication
+    ) {
+        return feeService.sendFeeReminder(feeDefinitionId, authentication.getName());
+    }
+
 }

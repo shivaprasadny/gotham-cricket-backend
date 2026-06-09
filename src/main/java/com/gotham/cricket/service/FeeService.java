@@ -809,5 +809,58 @@ public class FeeService {
 
         return "Fee updated successfully";
     }
+    @Transactional
+    public String sendFeeReminder(Long feeDefinitionId, String adminEmail) {
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        FeeDefinition feeDefinition = feeDefinitionRepository.findById(feeDefinitionId)
+                .orElseThrow(() -> new RuntimeException("Fee definition not found"));
+
+        List<FeeAssignment> assignments =
+                feeAssignmentRepository.findByFeeDefinitionOrderByDueDateAsc(feeDefinition);
+
+        List<FeeAssignment> unpaidAssignments = assignments.stream()
+                .filter(a -> a.getStatus() == FeeStatus.UNPAID)
+                .toList();
+
+        if (unpaidAssignments.isEmpty()) {
+            return "No unpaid members found for this fee";
+        }
+
+        List<Long> unpaidUserIds = unpaidAssignments.stream()
+                .map(a -> a.getUser().getId())
+                .toList();
+
+        String title = "Fee Payment Reminder";
+
+        String message =
+                feeDefinition.getTitle()
+                        + " payment is still pending. Amount: $"
+                        + feeDefinition.getAmount()
+                        + ". Please submit your payment as soon as possible.";
+
+        notificationService.createForUserIds(
+                unpaidUserIds,
+                title,
+                message,
+                "FEE_REMINDER",
+                "MyFees",
+                feeDefinitionId
+        );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        unpaidAssignments.forEach(a -> {
+            a.setLastReminderSentAt(now);
+            a.setReminderCount(
+                    a.getReminderCount() == null ? 1 : a.getReminderCount() + 1
+            );
+        });
+
+        feeAssignmentRepository.saveAll(unpaidAssignments);
+
+        return "Reminder sent to " + unpaidAssignments.size() + " unpaid members";
+    }
 
 }
