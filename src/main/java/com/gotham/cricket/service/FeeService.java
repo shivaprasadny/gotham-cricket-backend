@@ -828,35 +828,33 @@ public class FeeService {
             return "No unpaid members found for this fee";
         }
 
-        List<Long> unpaidUserIds = unpaidAssignments.stream()
-                .map(a -> a.getUser().getId())
-                .toList();
-
-        String title = "Fee Payment Reminder";
-
-        String message =
-                feeDefinition.getTitle()
-                        + " payment is still pending. Amount: $"
-                        + feeDefinition.getAmount()
-                        + ". Please submit your payment as soon as possible.";
-
-        notificationService.createForUserIds(
-                unpaidUserIds,
-                title,
-                message,
-                "FEE_REMINDER",
-                "MyFees",
-                feeDefinitionId
-        );
-
         LocalDateTime now = LocalDateTime.now();
 
-        unpaidAssignments.forEach(a -> {
-            a.setLastReminderSentAt(now);
-            a.setReminderCount(
-                    a.getReminderCount() == null ? 1 : a.getReminderCount() + 1
+        for (FeeAssignment assignment : unpaidAssignments) {
+            String title = "Fee Payment Reminder";
+
+            String message =
+                    feeDefinition.getTitle()
+                            + " payment is still pending. Amount: $"
+                            + assignment.getAmount()
+                            + ". Please submit your payment as soon as possible.";
+
+            notificationService.createForUserIds(
+                    List.of(assignment.getUser().getId()),
+                    title,
+                    message,
+                    "FEE_REMINDER",
+                    "MyFees",
+                    assignment.getId()
             );
-        });
+
+            assignment.setLastReminderSentAt(now);
+            assignment.setReminderCount(
+                    assignment.getReminderCount() == null
+                            ? 1
+                            : assignment.getReminderCount() + 1
+            );
+        }
 
         feeAssignmentRepository.saveAll(unpaidAssignments);
 
