@@ -31,3 +31,15 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Environment files
+.env
+*.env
+gotham.env
+
+# Mac files
+.DS_Store
+
+# Logs
+*.log
+app.log
