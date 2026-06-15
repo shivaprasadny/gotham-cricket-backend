@@ -43,3 +43,5 @@ gotham.env
 # Logs
 *.log
 app.log
+
+secrets.txt

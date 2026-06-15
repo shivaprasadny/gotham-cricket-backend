@@ -22,11 +22,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final MemberProfileRepository memberProfileRepository;
@@ -35,6 +38,7 @@ public class AuthService {
     private final NotificationService notificationService;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
+    private final RateLimitService rateLimitService;
 
     // =========================
     // REGISTER USER
@@ -374,6 +378,20 @@ public class AuthService {
             );
         }
 
+
+
+        String key = "FORGOT_PASSWORD:" + email.toLowerCase();
+
+        if (!rateLimitService.isAllowed(key, 3, 15)) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many password reset requests. Please try again later."
+            );
+        }
+
+
+
+
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -411,6 +429,8 @@ public class AuthService {
             );
         }
 
+
+
         return "Password reset code sent to your email.";
     }
 
@@ -435,6 +455,15 @@ public class AuthService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Email, code, and new password are required"
+            );
+        }
+
+        String key = "RESET_CODE_VERIFY:" + email.toLowerCase();
+
+        if (!rateLimitService.isAllowed(key, 5, 15)) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many reset code attempts. Please try again later."
             );
         }
 
@@ -468,6 +497,10 @@ public class AuthService {
         user.setPasswordResetExpiresAt(null);
 
         userRepository.save(user);
+
+        rateLimitService.clear("FORGOT_PASSWORD:" + email);
+        rateLimitService.clear("RESET_CODE_VERIFY:" + email);
+
 
         return "Password reset successful.";
     }
@@ -515,7 +548,7 @@ public class AuthService {
     // GENERATE 6-DIGIT CODE
     // =========================
     private String generateSixDigitCode() {
-        int code = (int) (Math.random() * 900000) + 100000;
+        int code = SECURE_RANDOM.nextInt(900000) + 100000;
         return String.valueOf(code);
     }
 }
