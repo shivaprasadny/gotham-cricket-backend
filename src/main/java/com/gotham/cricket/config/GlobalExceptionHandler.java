@@ -1,6 +1,10 @@
 package com.gotham.cricket.config;
 
 import com.gotham.cricket.dto.ApiErrorResponse;
+import com.gotham.cricket.exception.ScorecardAlreadyExistsException;
+import com.gotham.cricket.exception.ScorecardAlreadyPublishedException;
+import com.gotham.cricket.exception.ScorecardNotFoundException;
+import com.gotham.cricket.exception.ScorecardValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -56,6 +60,38 @@ public class GlobalExceptionHandler {
         );
 
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ScorecardNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleScorecardNotFound(ScorecardNotFoundException ex) {
+        ApiErrorResponse error = new ApiErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler({
+            ScorecardAlreadyExistsException.class,
+            ScorecardAlreadyPublishedException.class,
+            ScorecardValidationException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleScorecardConflict(RuntimeException ex) {
+        HttpStatus status = ex instanceof ScorecardValidationException
+                ? HttpStatus.BAD_REQUEST
+                : HttpStatus.CONFLICT;
+
+        ApiErrorResponse error = new ApiErrorResponse(
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+
+        return new ResponseEntity<>(error, status);
     }
 
     @ExceptionHandler(Exception.class)
