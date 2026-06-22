@@ -1,5 +1,6 @@
 package com.gotham.cricket.dto.scorecard;
 
+import com.gotham.cricket.enums.DismissalType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -28,6 +29,8 @@ public class BattingEntryRequest {
     private Integer sixes;
 
     private Boolean dismissed = false;
+
+    private DismissalType dismissalType;
 
     @Size(max = 1000)
     private String dismissalText;

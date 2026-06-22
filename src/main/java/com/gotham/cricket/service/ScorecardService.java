@@ -6,6 +6,7 @@ import com.gotham.cricket.enums.MatchOutcome;
 import com.gotham.cricket.enums.MatchStatus;
 import com.gotham.cricket.enums.ScorecardStatus;
 import com.gotham.cricket.enums.TossDecision;
+import com.gotham.cricket.enums.DismissalType;
 import com.gotham.cricket.exception.ScorecardAlreadyExistsException;
 import com.gotham.cricket.exception.ScorecardAlreadyPublishedException;
 import com.gotham.cricket.exception.ScorecardNotFoundException;
@@ -35,7 +36,7 @@ public class ScorecardService {
     private final InningsScoreRepository inningsScoreRepository;
     private final BattingPerformanceRepository battingPerformanceRepository;
     private final BowlingPerformanceRepository bowlingPerformanceRepository;
-    private final MatchSquadRepository matchSquadRepository;
+    private final FieldingPerformanceRepository fieldingPerformanceRepository;
     private final NotificationService notificationService;
 
     @Transactional
@@ -55,7 +56,7 @@ public class ScorecardService {
         applyMetaFields(scorecard, request);
 
         MatchScorecard savedScorecard = matchScorecardRepository.save(scorecard);
-        saveChildren(savedScorecard, request, match);
+        saveChildren(savedScorecard, request);
         validatePersistedScorecard(savedScorecard);
         return buildResponse(savedScorecard, authenticatedEmail, true);
     }
@@ -68,14 +69,12 @@ public class ScorecardService {
         }
 
         validateRequestBasics(request);
-        Match match = scorecard.getMatch();
-
         replaceChildren(scorecard.getId());
         applyMetaFields(scorecard, request);
         scorecard.setUpdatedBy(authenticatedEmail);
 
         MatchScorecard saved = matchScorecardRepository.save(scorecard);
-        saveChildren(saved, request, match);
+        saveChildren(saved, request);
         validatePersistedScorecard(saved);
         return buildResponse(saved, authenticatedEmail, true);
     }
@@ -190,10 +189,7 @@ public class ScorecardService {
         scorecard.setResultSummary(normalize(request.getResultSummary()));
     }
 
-    private void saveChildren(MatchScorecard scorecard, SaveScorecardRequest request, Match match) {
-        Set<Long> squadUserIds = getActiveSquadUserIds(match.getId());
-        Map<Integer, InningsScore> inningsByNumber = new HashMap<>();
-
+    private void saveChildren(MatchScorecard scorecard, SaveScorecardRequest request) {
         for (SaveInningsRequest inningsRequest : request.getInnings()) {
             validateInningsRequest(inningsRequest);
 
@@ -215,14 +211,13 @@ public class ScorecardService {
             innings.setAllOut(Boolean.TRUE.equals(inningsRequest.getAllOut()));
 
             InningsScore savedInnings = inningsScoreRepository.save(innings);
-            inningsByNumber.put(savedInnings.getInningsNumber(), savedInnings);
-
-            saveBattingRows(savedInnings, inningsRequest.getBattingEntries(), squadUserIds);
-            saveBowlingRows(savedInnings, inningsRequest.getBowlingEntries(), squadUserIds);
+            saveBattingRows(savedInnings, inningsRequest.getBattingEntries());
+            saveBowlingRows(savedInnings, inningsRequest.getBowlingEntries());
+            saveFieldingRows(savedInnings, inningsRequest.getFieldingEntries());
         }
     }
 
-    private void saveBattingRows(InningsScore innings, List<BattingEntryRequest> battingEntries, Set<Long> squadUserIds) {
+    private void saveBattingRows(InningsScore innings, List<BattingEntryRequest> battingEntries) {
         if (battingEntries == null) {
             return;
         }
@@ -241,10 +236,6 @@ public class ScorecardService {
                 throw new ScorecardValidationException("Duplicate batting player in innings " + innings.getInningsNumber());
             }
 
-            if (playerId != null) {
-                enforceSquadMembershipIfNeeded(squadUserIds, playerId);
-            }
-
             BattingPerformance row = new BattingPerformance();
             row.setInnings(innings);
             row.setPlayer(playerId != null ? resolveApprovedUser(playerId) : null);
@@ -254,15 +245,17 @@ public class ScorecardService {
             row.setBallsFaced(defaultZero(entry.getBallsFaced()));
             row.setFours(defaultZero(entry.getFours()));
             row.setSixes(defaultZero(entry.getSixes()));
-            row.setDismissed(Boolean.TRUE.equals(entry.getDismissed()));
+            DismissalType dismissalType = DismissalTypeResolver.resolve(entry);
+            row.setDismissalType(dismissalType);
+            row.setDismissed(DismissalTypeResolver.countsAsDismissal(dismissalType));
             row.setDismissalText(normalize(entry.getDismissalText()));
-            row.setDidNotBat(Boolean.TRUE.equals(entry.getDidNotBat()));
-            row.setRetiredHurt(Boolean.TRUE.equals(entry.getRetiredHurt()));
+            row.setDidNotBat(dismissalType == DismissalType.DID_NOT_BAT);
+            row.setRetiredHurt(dismissalType == DismissalType.RETIRED_HURT);
             battingPerformanceRepository.save(row);
         }
     }
 
-    private void saveBowlingRows(InningsScore innings, List<BowlingEntryRequest> bowlingEntries, Set<Long> squadUserIds) {
+    private void saveBowlingRows(InningsScore innings, List<BowlingEntryRequest> bowlingEntries) {
         if (bowlingEntries == null) {
             return;
         }
@@ -273,10 +266,6 @@ public class ScorecardService {
             Long playerId = entry.getPlayerId();
             if (playerId != null && !playerIds.add(playerId)) {
                 throw new ScorecardValidationException("Duplicate bowling player in innings " + innings.getInningsNumber());
-            }
-
-            if (playerId != null) {
-                enforceSquadMembershipIfNeeded(squadUserIds, playerId);
             }
 
             BowlingPerformance row = new BowlingPerformance();
@@ -293,12 +282,36 @@ public class ScorecardService {
         }
     }
 
+    private void saveFieldingRows(InningsScore innings, List<FieldingEntryRequest> fieldingEntries) {
+        if (fieldingEntries == null) {
+            return;
+        }
+
+        Set<Long> playerIds = new HashSet<>();
+        for (FieldingEntryRequest entry : fieldingEntries) {
+            validateFieldingEntry(entry);
+            if (!playerIds.add(entry.getPlayerId())) {
+                throw new ScorecardValidationException("Duplicate fielding player in innings " + innings.getInningsNumber());
+            }
+
+            FieldingPerformance row = new FieldingPerformance();
+            row.setInnings(innings);
+            row.setPlayer(resolveApprovedUser(entry.getPlayerId()));
+            row.setCatches(defaultZero(entry.getCatches()));
+            row.setDroppedCatches(defaultZero(entry.getDroppedCatches()));
+            row.setRunOuts(defaultZero(entry.getRunOuts()));
+            row.setStumpings(defaultZero(entry.getStumpings()));
+            fieldingPerformanceRepository.save(row);
+        }
+    }
+
     private void replaceChildren(Long scorecardId) {
         List<InningsScore> innings = inningsScoreRepository.findByScorecardId(scorecardId);
         List<Long> inningsIds = innings.stream().map(InningsScore::getId).toList();
         if (!inningsIds.isEmpty()) {
             battingPerformanceRepository.deleteByInningsIds(inningsIds);
             bowlingPerformanceRepository.deleteByInningsIds(inningsIds);
+            fieldingPerformanceRepository.deleteByInningsIds(inningsIds);
         }
         inningsScoreRepository.deleteByScorecardId(scorecardId);
     }
@@ -339,6 +352,15 @@ public class ScorecardService {
         if (innings.getWides() + innings.getNoBalls() + innings.getByes() + innings.getLegByes() + innings.getPenaltyRuns() != innings.getTotalExtras()) {
             throw new ScorecardValidationException("Extras components must equal total extras");
         }
+        if (innings.getBattingEntries() != null && innings.getBattingEntries().size() > 11) {
+            throw new ScorecardValidationException("An innings can contain at most 11 batting entries");
+        }
+        if (innings.getBowlingEntries() != null && innings.getBowlingEntries().size() > 11) {
+            throw new ScorecardValidationException("An innings can contain at most 11 bowling entries");
+        }
+        if (innings.getFieldingEntries() != null && innings.getFieldingEntries().size() > 12) {
+            throw new ScorecardValidationException("An innings can contain at most 12 fielding entries");
+        }
         if (innings.getBattingEntries() != null) {
             for (BattingEntryRequest batting : innings.getBattingEntries()) {
                 validateBattingEntry(batting);
@@ -347,6 +369,11 @@ public class ScorecardService {
         if (innings.getBowlingEntries() != null) {
             for (BowlingEntryRequest bowling : innings.getBowlingEntries()) {
                 validateBowlingEntry(bowling);
+            }
+        }
+        if (innings.getFieldingEntries() != null) {
+            for (FieldingEntryRequest fielding : innings.getFieldingEntries()) {
+                validateFieldingEntry(fielding);
             }
         }
     }
@@ -364,17 +391,18 @@ public class ScorecardService {
         int balls = defaultZero(entry.getBallsFaced());
         int fours = defaultZero(entry.getFours());
         int sixes = defaultZero(entry.getSixes());
+        DismissalType dismissalType = DismissalTypeResolver.resolve(entry);
         if (runs < 0 || balls < 0 || fours < 0 || sixes < 0) {
             throw new ScorecardValidationException("Batting values cannot be negative");
         }
         if (fours * 4 + sixes * 6 > runs) {
             throw new ScorecardValidationException("Boundary runs cannot exceed batter runs");
         }
-        if (Boolean.TRUE.equals(entry.getDidNotBat()) && (runs != 0 || balls != 0)) {
+        if (dismissalType == DismissalType.DID_NOT_BAT && (runs != 0 || balls != 0)) {
             throw new ScorecardValidationException("Did-not-bat entries must have zero runs and zero balls");
         }
-        if (Boolean.TRUE.equals(entry.getDidNotBat()) && Boolean.TRUE.equals(entry.getDismissed())) {
-            throw new ScorecardValidationException("Did-not-bat entries cannot be marked dismissed");
+        if (entry.getDismissalType() == DismissalType.OTHER && isBlank(entry.getDismissalText())) {
+            throw new ScorecardValidationException("OTHER dismissal type requires dismissal text");
         }
     }
 
@@ -397,6 +425,16 @@ public class ScorecardService {
             if (entry.getMaidens() != null && entry.getMaidens() > completedOvers) {
                 throw new ScorecardValidationException("Maidens cannot exceed completed overs");
             }
+        }
+    }
+
+    private void validateFieldingEntry(FieldingEntryRequest entry) {
+        if (entry.getPlayerId() == null) {
+            throw new ScorecardValidationException("Fielding player is required");
+        }
+        if (defaultZero(entry.getCatches()) < 0 || defaultZero(entry.getDroppedCatches()) < 0
+                || defaultZero(entry.getRunOuts()) < 0 || defaultZero(entry.getStumpings()) < 0) {
+            throw new ScorecardValidationException("Fielding values cannot be negative");
         }
     }
 
@@ -426,6 +464,7 @@ public class ScorecardService {
 
             List<BattingPerformance> battingRows = battingPerformanceRepository.findByInningsIdOrderByBattingPositionAsc(inningsScore.getId());
             List<BowlingPerformance> bowlingRows = bowlingPerformanceRepository.findByInningsId(inningsScore.getId());
+            List<FieldingPerformance> fieldingRows = fieldingPerformanceRepository.findByInningsId(inningsScore.getId());
 
             if (battingRows.stream().map(BattingPerformance::getBattingPosition).collect(Collectors.toSet()).size() != battingRows.size()) {
                 throw new ScorecardValidationException("Duplicate batting positions found");
@@ -435,6 +474,9 @@ public class ScorecardService {
             }
             if (bowlingRows.stream().map(row -> row.getPlayer() != null ? row.getPlayer().getId() : row.getExternalPlayerName()).collect(Collectors.toSet()).size() != bowlingRows.size()) {
                 throw new ScorecardValidationException("Duplicate bowling players found");
+            }
+            if (fieldingRows.stream().map(row -> row.getPlayer().getId()).collect(Collectors.toSet()).size() != fieldingRows.size()) {
+                throw new ScorecardValidationException("Duplicate fielding players found");
             }
 
             int battingRuns = battingRows.stream().mapToInt(row -> defaultZero(row.getRuns())).sum();
@@ -519,6 +561,10 @@ public class ScorecardService {
                 .stream()
                 .map(this::buildBowlingResponse)
                 .toList();
+        List<FieldingPerformanceResponse> fielding = fieldingPerformanceRepository.findByInningsId(inningsScore.getId())
+                .stream()
+                .map(this::buildFieldingResponse)
+                .toList();
 
         return new InningsResponse(
                 inningsScore.getId(),
@@ -538,15 +584,17 @@ public class ScorecardService {
                 inningsScore.isDeclared(),
                 inningsScore.isAllOut(),
                 batting,
-                bowling
+                bowling,
+                fielding
         );
     }
 
     private BattingPerformanceResponse buildBattingResponse(BattingPerformance row) {
         String name = row.getPlayer() != null ? row.getPlayer().getFullName() : row.getExternalPlayerName();
-        String dismissal = row.isDidNotBat()
+        DismissalType dismissalType = DismissalTypeResolver.resolve(row);
+        String dismissal = dismissalType == DismissalType.DID_NOT_BAT
                 ? "Did not bat"
-                : row.isRetiredHurt() ? "Retired hurt" : row.getDismissalText();
+                : dismissalType == DismissalType.RETIRED_HURT ? "Retired hurt" : row.getDismissalText();
         return new BattingPerformanceResponse(
                 row.getPlayer() != null ? row.getPlayer().getId() : null,
                 name,
@@ -554,6 +602,7 @@ public class ScorecardService {
                 defaultZero(row.getBallsFaced()),
                 defaultZero(row.getFours()),
                 defaultZero(row.getSixes()),
+                dismissalType,
                 dismissal,
                 ScorecardMath.strikeRate(defaultZero(row.getRuns()), defaultZero(row.getBallsFaced()))
         );
@@ -572,6 +621,25 @@ public class ScorecardService {
                 defaultZero(row.getWides()),
                 defaultZero(row.getNoBalls()),
                 defaultZero(row.getWides()) + defaultZero(row.getNoBalls())
+        );
+    }
+
+    private FieldingPerformanceResponse buildFieldingResponse(FieldingPerformance row) {
+        int catches = defaultZero(row.getCatches());
+        int droppedCatches = defaultZero(row.getDroppedCatches());
+        int runOuts = defaultZero(row.getRunOuts());
+        int stumpings = defaultZero(row.getStumpings());
+        int catchChances = catches + droppedCatches;
+        return new FieldingPerformanceResponse(
+                row.getPlayer().getId(),
+                row.getPlayer().getFullName(),
+                catches,
+                droppedCatches,
+                runOuts,
+                stumpings,
+                catches + runOuts + stumpings,
+                catchChances,
+                catchChances == 0 ? 0d : ScorecardMath.round2(catches * 100.0 / catchChances)
         );
     }
 
@@ -653,20 +721,6 @@ public class ScorecardService {
             throw new ScorecardValidationException("User must be approved");
         }
         return user;
-    }
-
-    private Set<Long> getActiveSquadUserIds(Long matchId) {
-        List<MatchSquad> squad = matchSquadRepository.findByMatchId(matchId);
-        if (squad == null || squad.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return squad.stream().map(row -> row.getUser().getId()).collect(Collectors.toSet());
-    }
-
-    private void enforceSquadMembershipIfNeeded(Set<Long> squadUserIds, Long playerId) {
-        if (!squadUserIds.isEmpty() && !squadUserIds.contains(playerId)) {
-            throw new ScorecardValidationException("Internal players must belong to the active match squad");
-        }
     }
 
     private boolean isAdminOrCaptain(Authentication authentication) {

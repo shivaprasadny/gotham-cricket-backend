@@ -55,4 +55,23 @@ public interface MatchScorecardRepository extends JpaRepository<MatchScorecard, 
             where s.status = com.gotham.cricket.enums.ScorecardStatus.PUBLISHED
             """)
     long countPublishedScorecards();
+
+    @Query("""
+            select distinct s
+            from MatchScorecard s
+            join fetch s.match m
+            left join fetch m.homeTeam
+            left join fetch m.awayTeam
+            left join fetch m.league
+            left join fetch s.winningTeam
+            left join fetch s.playerOfMatch
+            where s.status = com.gotham.cricket.enums.ScorecardStatus.PUBLISHED
+              and (:year is null or year(m.matchDate) = :year)
+              and (:leagueId is null or m.league.id = :leagueId)
+            order by m.matchDate asc
+            """)
+    List<MatchScorecard> findPublishedForCharts(
+            @Param("year") Integer year,
+            @Param("leagueId") Long leagueId
+    );
 }

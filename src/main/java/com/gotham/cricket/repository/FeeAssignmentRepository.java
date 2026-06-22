@@ -47,4 +47,6 @@ public interface FeeAssignmentRepository extends JpaRepository<FeeAssignment, Lo
 
     // Get fee assignments by multiple statuses
     List<FeeAssignment> findByStatusIn(List<FeeStatus> statuses);
+
+    List<FeeAssignment> findByUserAndStatusInOrderByDueDateAsc(User user, List<FeeStatus> statuses);
 }

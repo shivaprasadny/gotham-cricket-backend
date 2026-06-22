@@ -64,4 +64,8 @@ public class SaveInningsRequest {
     @Valid
     @Size(max = 11)
     private List<BowlingEntryRequest> bowlingEntries;
+
+    @Valid
+    @Size(max = 12)
+    private List<FieldingEntryRequest> fieldingEntries;
 }

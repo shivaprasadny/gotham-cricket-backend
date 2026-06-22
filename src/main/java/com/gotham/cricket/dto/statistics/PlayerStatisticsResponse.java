@@ -38,6 +38,20 @@ public class PlayerStatisticsResponse {
     private Integer bestBowlingRuns;
     private Integer wides;
     private Integer noBalls;
+    private Integer bowledDismissals;
+    private Integer caughtDismissals;
+    private Integer lbwDismissals;
+    private Integer runOutDismissals;
+    private Integer stumpedDismissals;
+    private Integer hitWicketDismissals;
+    private Integer otherDismissals;
+    private Integer catches;
+    private Integer droppedCatches;
+    private Integer runOuts;
+    private Integer stumpings;
+    private Integer fieldingDismissals;
+    private Integer catchChances;
+    private Double catchEfficiency;
     private Integer playerOfMatchAwards;
     private List<RecentMatchPerformanceResponse> recentPerformances;
 }

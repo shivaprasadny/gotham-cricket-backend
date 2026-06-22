@@ -11,6 +11,15 @@ import java.util.List;
 public interface InningsScoreRepository extends JpaRepository<InningsScore, Long> {
     List<InningsScore> findByScorecardIdOrderByInningsNumberAsc(Long scorecardId);
     List<InningsScore> findByScorecardId(Long scorecardId);
+    @Query("""
+            select i
+            from InningsScore i
+            join fetch i.scorecard s
+            left join fetch i.battingTeam
+            where s.id in :scorecardIds
+            order by s.match.matchDate asc, i.inningsNumber asc
+            """)
+    List<InningsScore> findForChartScorecards(@Param("scorecardIds") List<Long> scorecardIds);
 
     @Modifying
     @Query("delete from InningsScore i where i.scorecard.id = :scorecardId")

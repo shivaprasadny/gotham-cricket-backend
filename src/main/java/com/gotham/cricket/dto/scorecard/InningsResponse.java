@@ -26,4 +26,5 @@ public class InningsResponse {
     private Boolean allOut;
     private List<BattingPerformanceResponse> batting;
     private List<BowlingPerformanceResponse> bowling;
+    private List<FieldingPerformanceResponse> fielding;
 }

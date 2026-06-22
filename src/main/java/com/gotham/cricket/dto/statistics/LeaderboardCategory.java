@@ -9,5 +9,10 @@ public enum LeaderboardCategory {
     BEST_BOWLING,
     ECONOMY,
     SIXES,
-    POM
+    POM,
+    CATCHES,
+    FIELDING_DISMISSALS,
+    STUMPINGS,
+    RUN_OUTS,
+    CATCH_EFFICIENCY
 }

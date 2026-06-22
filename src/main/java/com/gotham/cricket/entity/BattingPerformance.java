@@ -1,5 +1,6 @@
 package com.gotham.cricket.entity;
 
+import com.gotham.cricket.enums.DismissalType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -58,6 +59,10 @@ public class BattingPerformance {
 
     @Column(name = "dismissal_text", length = 1000)
     private String dismissalText;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "dismissal_type")
+    private DismissalType dismissalType;
 
     @Column(nullable = false)
     private boolean didNotBat = false;

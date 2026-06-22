@@ -1,5 +1,6 @@
 package com.gotham.cricket.dto.scorecard;
 
+import com.gotham.cricket.enums.DismissalType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -12,6 +13,7 @@ public class BattingPerformanceResponse {
     private Integer balls;
     private Integer fours;
     private Integer sixes;
+    private DismissalType dismissalType;
     private String dismissal;
     private Double strikeRate;
 }
