@@ -13,7 +13,7 @@ public interface FieldingPerformanceRepository extends JpaRepository<FieldingPer
     List<FieldingPerformance> findByInningsId(Long inningsId);
     List<FieldingPerformance> findByInningsIdIn(List<Long> inningsIds);
 
-    @Modifying
+    @Modifying(flushAutomatically = true)
     @Query("delete from FieldingPerformance f where f.innings.id in :inningsIds")
     void deleteByInningsIds(@Param("inningsIds") List<Long> inningsIds);
 

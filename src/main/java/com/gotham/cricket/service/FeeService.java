@@ -453,6 +453,9 @@ public class FeeService {
             throw new RuntimeException("No Playing XI or Impact Player found for this match");
         }
 
+        // The configured amount is the fee charged to each selected player.
+        double amountPerPlayer = match.getMatchFeeAmount();
+
         // Prevent duplicate fee creation for same match
         boolean alreadyExists = feeDefinitionRepository.findAll()
                 .stream()
@@ -480,7 +483,7 @@ public class FeeService {
         FeeDefinition feeDefinition = new FeeDefinition();
         feeDefinition.setTitle(title);
         feeDefinition.setFeeType(FeeType.MATCH_FEE);
-        feeDefinition.setAmount(match.getMatchFeeAmount());
+        feeDefinition.setAmount(amountPerPlayer);
         feeDefinition.setDueDate(match.getMatchFeeDueDate());
         feeDefinition.setDescription(match.getMatchFeeDescription());
         feeDefinition.setMatchId(match.getId());
@@ -497,7 +500,7 @@ public class FeeService {
             FeeAssignment assignment = new FeeAssignment();
             assignment.setFeeDefinition(feeDefinition);
             assignment.setUser(squadRow.getUser());
-            assignment.setAmount(match.getMatchFeeAmount());
+            assignment.setAmount(amountPerPlayer);
             assignment.setDueDate(match.getMatchFeeDueDate());
             assignment.setStatus(FeeStatus.UNPAID);
 
@@ -521,7 +524,13 @@ public class FeeService {
                 null
         );
 
-        return "Match fee assigned to squad players successfully";
+        return "Match fee assigned to "
+                + squadRows.size()
+                + " squad player"
+                + (squadRows.size() == 1 ? "" : "s")
+                + " at $"
+                + String.format(java.util.Locale.US, "%.2f", amountPerPlayer)
+                + " each";
     }
 
     // Update one fee definition

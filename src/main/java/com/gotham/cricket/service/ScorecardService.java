@@ -156,9 +156,19 @@ public class ScorecardService {
             throw new ScorecardValidationException("Only draft scorecards can be deleted");
         }
 
-        replaceChildren(scorecard.getId());
-        matchScorecardRepository.delete(scorecard);
-        return "Draft scorecard deleted successfully";
+        Long scorecardId = scorecard.getId();
+        try {
+            deleteChildrenByScorecardId(scorecardId);
+            matchScorecardRepository.deleteById(scorecardId);
+            matchScorecardRepository.flush();
+            log.info("Deleted draft scorecard {} for match {} by {}", scorecardId, matchId, authenticatedEmail);
+            return "Draft scorecard deleted successfully";
+        } catch (RuntimeException exception) {
+            log.error("Failed to delete draft scorecard {} for match {}", scorecardId, matchId, exception);
+            throw new ScorecardValidationException(
+                    "Could not delete the draft scorecard. Please try again."
+            );
+        }
     }
 
     @Transactional
@@ -278,6 +288,7 @@ public class ScorecardService {
             row.setWickets(defaultZero(entry.getWickets()));
             row.setWides(defaultZero(entry.getWides()));
             row.setNoBalls(defaultZero(entry.getNoBalls()));
+            row.setDotBalls(defaultZero(entry.getDotBalls()));
             bowlingPerformanceRepository.save(row);
         }
     }
@@ -306,14 +317,23 @@ public class ScorecardService {
     }
 
     private void replaceChildren(Long scorecardId) {
-        List<InningsScore> innings = inningsScoreRepository.findByScorecardId(scorecardId);
-        List<Long> inningsIds = innings.stream().map(InningsScore::getId).toList();
+        deleteChildrenByScorecardId(scorecardId);
+    }
+
+    private void deleteChildrenByScorecardId(Long scorecardId) {
+        // Delete from the leaves upward. Using only IDs avoids retaining
+        // managed innings entities after bulk JPQL deletion.
+        List<Long> inningsIds = inningsScoreRepository.findIdsByScorecardId(scorecardId);
         if (!inningsIds.isEmpty()) {
             battingPerformanceRepository.deleteByInningsIds(inningsIds);
             bowlingPerformanceRepository.deleteByInningsIds(inningsIds);
             fieldingPerformanceRepository.deleteByInningsIds(inningsIds);
+            battingPerformanceRepository.flush();
+            bowlingPerformanceRepository.flush();
+            fieldingPerformanceRepository.flush();
         }
         inningsScoreRepository.deleteByScorecardId(scorecardId);
+        inningsScoreRepository.flush();
     }
 
     private void validateRequestBasics(SaveScorecardRequest request) {
@@ -338,6 +358,7 @@ public class ScorecardService {
     }
 
     private void validateInningsRequest(SaveInningsRequest innings) {
+        normalizeLegacyExtras(innings);
         if (innings.getInningsNumber() == null || (innings.getInningsNumber() != 1 && innings.getInningsNumber() != 2)) {
             throw new ScorecardValidationException("Innings number must be 1 or 2");
         }
@@ -362,6 +383,14 @@ public class ScorecardService {
             throw new ScorecardValidationException("An innings can contain at most 12 fielding entries");
         }
         if (innings.getBattingEntries() != null) {
+            long notOutCount = innings.getBattingEntries().stream()
+                    .filter(entry -> DismissalTypeResolver.resolve(entry) == DismissalType.NOT_OUT)
+                    .count();
+            if (notOutCount > 2) {
+                throw new ScorecardValidationException("An innings can have at most 2 Not Out batters");
+            }
+        }
+        if (innings.getBattingEntries() != null) {
             for (BattingEntryRequest batting : innings.getBattingEntries()) {
                 validateBattingEntry(batting);
             }
@@ -376,6 +405,28 @@ public class ScorecardService {
                 validateFieldingEntry(fielding);
             }
         }
+    }
+
+    /**
+     * Older clients sent only totalExtras and treated the amount as wides.
+     * Preserve those saved/request payloads while new clients send all fields.
+     */
+    private void normalizeLegacyExtras(SaveInningsRequest innings) {
+        int total = defaultZero(innings.getTotalExtras());
+        int wides = defaultZero(innings.getWides());
+        int noBalls = defaultZero(innings.getNoBalls());
+        int byes = defaultZero(innings.getByes());
+        int legByes = defaultZero(innings.getLegByes());
+        int penaltyRuns = defaultZero(innings.getPenaltyRuns());
+        if (total > 0 && wides + noBalls + byes + legByes + penaltyRuns == 0) {
+            wides = total;
+        }
+        innings.setTotalExtras(total);
+        innings.setWides(wides);
+        innings.setNoBalls(noBalls);
+        innings.setByes(byes);
+        innings.setLegByes(legByes);
+        innings.setPenaltyRuns(penaltyRuns);
     }
 
     private void validateBattingEntry(BattingEntryRequest entry) {
@@ -416,6 +467,10 @@ public class ScorecardService {
                 || defaultZero(entry.getRunsConceded()) < 0 || defaultZero(entry.getWickets()) < 0
                 || defaultZero(entry.getWides()) < 0 || defaultZero(entry.getNoBalls()) < 0) {
             throw new ScorecardValidationException("Bowling values cannot be negative");
+        }
+        if (defaultZero(entry.getDotBalls()) < 0
+                || defaultZero(entry.getDotBalls()) > defaultZero(entry.getLegalBalls())) {
+            throw new ScorecardValidationException("Dot balls must be between 0 and legal balls");
         }
         if (defaultZero(entry.getWickets()) > 10) {
             throw new ScorecardValidationException("Wickets cannot exceed 10");
@@ -575,12 +630,12 @@ public class ScorecardService {
                 inningsScore.getWickets(),
                 inningsScore.getLegalBalls(),
                 ScorecardMath.formatOvers(inningsScore.getLegalBalls()),
-                inningsScore.getTotalExtras(),
-                inningsScore.getWides(),
-                inningsScore.getNoBalls(),
-                inningsScore.getByes(),
-                inningsScore.getLegByes(),
-                inningsScore.getPenaltyRuns(),
+                defaultZero(inningsScore.getTotalExtras()),
+                defaultZero(inningsScore.getWides()),
+                defaultZero(inningsScore.getNoBalls()),
+                defaultZero(inningsScore.getByes()),
+                defaultZero(inningsScore.getLegByes()),
+                defaultZero(inningsScore.getPenaltyRuns()),
                 inningsScore.isDeclared(),
                 inningsScore.isAllOut(),
                 batting,
@@ -620,6 +675,7 @@ public class ScorecardService {
                 ScorecardMath.economy(defaultZero(row.getRunsConceded()), defaultZero(row.getLegalBalls())),
                 defaultZero(row.getWides()),
                 defaultZero(row.getNoBalls()),
+                defaultZero(row.getDotBalls()),
                 defaultZero(row.getWides()) + defaultZero(row.getNoBalls())
         );
     }

@@ -32,6 +32,7 @@ public class MatchService {
     private final AvailabilityRepository availabilityRepository;
     private final MatchSquadRepository matchSquadRepository;
     private final NotificationService notificationService;
+    private final ChatRoomProvisioningService chatRoomProvisioningService;
 
     // Create match using flexible team/opponent structure
     public MatchResponse createMatch(String email, MatchRequest request) {
@@ -80,13 +81,11 @@ public class MatchService {
             throw new RuntimeException("Venue is required");
         }
 
-        if (request.getMatchType() == null || request.getMatchType().trim().isEmpty()) {
-            throw new RuntimeException("Match type is required");
-        }
-
         if (request.getMatchFormat() == null || request.getMatchFormat().trim().isEmpty()) {
             throw new RuntimeException("Match format is required");
         }
+
+        String homeAway = normalizeHomeAway(request.getHomeAway());
 
         Match match = new Match();
         match.setHomeTeam(homeTeam);
@@ -99,7 +98,9 @@ public class MatchService {
         match.setLeague(league);
         match.setMatchDate(request.getMatchDate());
         match.setVenue(request.getVenue().trim());
-        match.setMatchType(request.getMatchType().trim());
+        // Keep the legacy required column populated without exposing it in UI.
+        match.setMatchType(hasText(request.getMatchType()) ? request.getMatchType().trim() : "MATCH");
+        match.setHomeAway(homeAway);
         match.setMatchFormat(request.getMatchFormat().trim());
         match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setCreatedBy(user.getFullName());
@@ -111,6 +112,7 @@ public class MatchService {
 
         // save match first
         Match savedMatch = matchRepository.save(match);
+        chatRoomProvisioningService.ensureMatchRoom(savedMatch);
 
         // build opponent text
         String opponentName = awayTeam != null
@@ -138,6 +140,7 @@ public class MatchService {
                 savedMatch.getMatchDate(),
                 savedMatch.getVenue(),
                 savedMatch.getMatchType(),
+                homeAwayOrDefault(savedMatch),
                 savedMatch.getMatchFormat(),
                 savedMatch.getNotes(),
                 savedMatch.getCreatedBy(),
@@ -187,6 +190,7 @@ public class MatchService {
                             match.getMatchDate(),
                             match.getVenue(),
                             match.getMatchType(),
+                            homeAwayOrDefault(match),
                             match.getMatchFormat(),
                             match.getNotes(),
                             match.getCreatedBy(),
@@ -225,6 +229,7 @@ public class MatchService {
                 match.getMatchDate(),
                 match.getVenue(),
                 match.getMatchType(),
+                homeAwayOrDefault(match),
                 match.getMatchFormat(),
                 match.getNotes(),
                 match.getCreatedBy(),
@@ -284,13 +289,11 @@ public class MatchService {
             throw new RuntimeException("Venue is required");
         }
 
-        if (request.getMatchType() == null || request.getMatchType().trim().isEmpty()) {
-            throw new RuntimeException("Match type is required");
-        }
-
         if (request.getMatchFormat() == null || request.getMatchFormat().trim().isEmpty()) {
             throw new RuntimeException("Match format is required");
         }
+
+        String homeAway = normalizeHomeAway(request.getHomeAway());
 
         match.setHomeTeam(homeTeam);
         match.setAwayTeam(awayTeam);
@@ -302,7 +305,12 @@ public class MatchService {
         match.setLeague(league);
         match.setMatchDate(request.getMatchDate());
         match.setVenue(request.getVenue().trim());
-        match.setMatchType(request.getMatchType().trim());
+        if (hasText(request.getMatchType())) {
+            match.setMatchType(request.getMatchType().trim());
+        } else if (!hasText(match.getMatchType())) {
+            match.setMatchType("MATCH");
+        }
+        match.setHomeAway(homeAway);
         match.setMatchFormat(request.getMatchFormat().trim());
         match.setNotes(request.getNotes() != null ? request.getNotes().trim() : null);
         match.setMatchFee(request.getMatchFee());
@@ -347,5 +355,21 @@ public class MatchService {
     // Return future matches only
     public List<Match> getUpcomingMatches() {
         return matchRepository.findByMatchDateAfter(LocalDateTime.now());
+    }
+
+    private String normalizeHomeAway(String value) {
+        String normalized = hasText(value) ? value.trim().toUpperCase() : "HOME";
+        if (!"HOME".equals(normalized) && !"AWAY".equals(normalized)) {
+            throw new RuntimeException("Home/Away must be HOME or AWAY");
+        }
+        return normalized;
+    }
+
+    private String homeAwayOrDefault(Match match) {
+        return hasText(match.getHomeAway()) ? match.getHomeAway().toUpperCase() : "HOME";
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

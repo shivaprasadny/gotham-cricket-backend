@@ -52,4 +52,7 @@ public class BowlingPerformance {
 
     @Column(name = "no_balls", nullable = false)
     private Integer noBalls = 0;
+
+    @Column(name = "dot_balls", nullable = false, columnDefinition = "integer default 0")
+    private Integer dotBalls = 0;
 }

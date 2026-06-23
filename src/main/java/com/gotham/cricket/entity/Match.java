@@ -51,6 +51,11 @@ public class Match {
     @Column(name = "match_type", nullable = false)
     private String matchType;
 
+    // HOME/AWAY is separate from competition format. matchType remains only
+    // for backward compatibility with existing database rows.
+    @Column(name = "home_away")
+    private String homeAway;
+
     // Optional notes
     @Column(length = 2000)
     private String notes;

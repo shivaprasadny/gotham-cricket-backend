@@ -29,6 +29,9 @@ public class MatchRequest {
     // Flexible text match type
     private String matchType;
 
+    // Whether Gotham is playing at home or away
+    private String homeAway;
+
     // Notes
     private String notes;
 

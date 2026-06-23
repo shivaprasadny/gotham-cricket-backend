@@ -15,5 +15,6 @@ public class BowlingPerformanceResponse {
     private Double economy;
     private Integer wides;
     private Integer noBalls;
+    private Integer dotBalls;
     private Integer totalBowlingExtras;
 }

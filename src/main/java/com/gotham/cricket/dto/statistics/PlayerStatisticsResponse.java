@@ -38,6 +38,7 @@ public class PlayerStatisticsResponse {
     private Integer bestBowlingRuns;
     private Integer wides;
     private Integer noBalls;
+    private Integer dotBalls;
     private Integer bowledDismissals;
     private Integer caughtDismissals;
     private Integer lbwDismissals;

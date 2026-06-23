@@ -14,4 +14,8 @@ public class MatchSquadResponse {
     private Integer jerseyNumber;
     private Boolean isPlayingXi;
     private String roleInMatch;
+    private Boolean isCaptain;
+    private Boolean isViceCaptain;
+    private Boolean isWicketKeeper;
+    private Integer squadPosition;
 }

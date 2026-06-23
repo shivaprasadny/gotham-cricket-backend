@@ -2,6 +2,7 @@ package com.gotham.cricket.service;
 
 import com.gotham.cricket.dto.scorecard.BattingEntryRequest;
 import com.gotham.cricket.dto.scorecard.BowlingEntryRequest;
+import com.gotham.cricket.dto.scorecard.FieldingEntryRequest;
 import com.gotham.cricket.dto.scorecard.SaveInningsRequest;
 import com.gotham.cricket.dto.scorecard.SaveScorecardRequest;
 import com.gotham.cricket.entity.Match;
@@ -11,16 +12,13 @@ import com.gotham.cricket.entity.Team;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.MatchOutcome;
 import com.gotham.cricket.enums.MatchStatus;
+import com.gotham.cricket.enums.DismissalType;
 import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.enums.ScorecardStatus;
 import com.gotham.cricket.enums.UserStatus;
 import com.gotham.cricket.exception.ScorecardAlreadyExistsException;
 import com.gotham.cricket.exception.ScorecardValidationException;
-import com.gotham.cricket.repository.MatchRepository;
-import com.gotham.cricket.repository.MatchScorecardRepository;
-import com.gotham.cricket.repository.MatchSquadRepository;
-import com.gotham.cricket.repository.TeamRepository;
-import com.gotham.cricket.repository.UserRepository;
+import com.gotham.cricket.repository.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -44,6 +42,10 @@ class ScorecardServiceTest {
     @Autowired private TeamRepository teamRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private StatisticsService statisticsService;
+    @Autowired private InningsScoreRepository inningsScoreRepository;
+    @Autowired private BattingPerformanceRepository battingPerformanceRepository;
+    @Autowired private BowlingPerformanceRepository bowlingPerformanceRepository;
+    @Autowired private FieldingPerformanceRepository fieldingPerformanceRepository;
 
     @Test
     void createDraftPreventsDuplicateScorecard() {
@@ -74,6 +76,78 @@ class ScorecardServiceTest {
 
         assertEquals(ScorecardStatus.PUBLISHED, response.getStatus());
         assertEquals(MatchStatus.COMPLETED, matchRepository.findById(match.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void legacyTotalExtrasArePreservedAsWides() {
+        Match match = saveMatch();
+        SaveScorecardRequest request = minimalRequest();
+        SaveInningsRequest innings = request.getInnings().getFirst();
+        innings.setTotalExtras(7);
+        innings.setWides(null);
+        innings.setNoBalls(null);
+        innings.setByes(null);
+        innings.setLegByes(null);
+        innings.setPenaltyRuns(null);
+
+        var response = scorecardService.createDraft(match.getId(), request, "admin@gotham.com");
+
+        assertEquals(7, response.getInnings().getFirst().getTotalExtras());
+        assertEquals(7, response.getInnings().getFirst().getWides());
+        assertEquals(0, response.getInnings().getFirst().getNoBalls());
+    }
+
+    @Test
+    void moreThanTwoNotOutBattersAreRejected() {
+        Match match = saveMatch();
+        SaveScorecardRequest request = minimalRequest();
+        request.getInnings().getFirst().setBattingEntries(List.of(
+                notOutEntry("One", 1),
+                notOutEntry("Two", 2),
+                notOutEntry("Three", 3)
+        ));
+
+        ScorecardValidationException exception = assertThrows(
+                ScorecardValidationException.class,
+                () -> scorecardService.createDraft(match.getId(), request, "admin@gotham.com")
+        );
+
+        assertEquals("An innings can have at most 2 Not Out batters", exception.getMessage());
+    }
+
+    @Test
+    void deleteDraftRemovesAllChildrenWithoutDeletingMatchOrPlayers() {
+        Match match = saveMatch();
+        User player = saveUser(UserStatus.APPROVED, "Delete", "Player");
+        SaveScorecardRequest request = minimalRequest();
+        SaveInningsRequest innings = request.getInnings().getFirst();
+        innings.setBattingEntries(List.of(battingEntry(player.getId(), null, 1)));
+        innings.setBowlingEntries(List.of(bowlingEntry(player.getId(), null)));
+        FieldingEntryRequest fielding = new FieldingEntryRequest();
+        fielding.setPlayerId(player.getId());
+        fielding.setCatches(1);
+        fielding.setDroppedCatches(0);
+        fielding.setRunOuts(0);
+        fielding.setStumpings(0);
+        innings.setFieldingEntries(List.of(fielding));
+
+        var saved = scorecardService.createDraft(match.getId(), request, "admin@gotham.com");
+        Long scorecardId = saved.getScorecardId();
+        List<Long> inningsIds = inningsScoreRepository.findIdsByScorecardId(scorecardId);
+        assertFalse(inningsIds.isEmpty());
+
+        assertEquals(
+                "Draft scorecard deleted successfully",
+                scorecardService.deleteDraft(match.getId(), "admin@gotham.com")
+        );
+
+        assertFalse(matchScorecardRepository.existsById(scorecardId));
+        assertTrue(inningsScoreRepository.findIdsByScorecardId(scorecardId).isEmpty());
+        assertTrue(battingPerformanceRepository.findByInningsId(inningsIds.getFirst()).isEmpty());
+        assertTrue(bowlingPerformanceRepository.findByInningsId(inningsIds.getFirst()).isEmpty());
+        assertTrue(fieldingPerformanceRepository.findByInningsId(inningsIds.getFirst()).isEmpty());
+        assertTrue(matchRepository.existsById(match.getId()));
+        assertTrue(userRepository.existsById(player.getId()));
     }
 
     @Test
@@ -162,6 +236,7 @@ class ScorecardServiceTest {
         assertEquals(32, statistics.getTotalRuns());
         assertEquals(2, statistics.getWickets());
         assertEquals(18, statistics.getTotalLegalBalls());
+        assertEquals(8, statistics.getDotBalls());
     }
 
     @ParameterizedTest
@@ -331,6 +406,14 @@ class ScorecardServiceTest {
         return entry;
     }
 
+    private BattingEntryRequest notOutEntry(String name, int position) {
+        BattingEntryRequest entry = battingEntry(null, name, position);
+        entry.setDismissed(false);
+        entry.setDismissalType(DismissalType.NOT_OUT);
+        entry.setDismissalText("");
+        return entry;
+    }
+
     private BowlingEntryRequest bowlingEntry(Long playerId, String externalName) {
         BowlingEntryRequest entry = new BowlingEntryRequest();
         entry.setPlayerId(playerId);
@@ -341,6 +424,7 @@ class ScorecardServiceTest {
         entry.setWickets(2);
         entry.setWides(1);
         entry.setNoBalls(0);
+        entry.setDotBalls(8);
         return entry;
     }
 

@@ -29,4 +29,7 @@ public class BowlingEntryRequest {
 
     @Min(0)
     private Integer noBalls;
+
+    @Min(0)
+    private Integer dotBalls;
 }

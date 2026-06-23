@@ -87,6 +87,7 @@ public class StatisticsService {
         int wickets = bowling.stream().mapToInt(row -> defaultZero(row.getWickets())).sum();
         int wides = bowling.stream().mapToInt(row -> defaultZero(row.getWides())).sum();
         int noBalls = bowling.stream().mapToInt(row -> defaultZero(row.getNoBalls())).sum();
+        int dotBalls = bowling.stream().mapToInt(row -> defaultZero(row.getDotBalls())).sum();
 
         BowlingPerformance bestBowling = bowling.stream()
                 .max(Comparator.comparingInt((BowlingPerformance row) -> defaultZero(row.getWickets()))
@@ -128,6 +129,7 @@ public class StatisticsService {
                 bestBowling != null ? bestBowling.getRunsConceded() : 0,
                 wides,
                 noBalls,
+                dotBalls,
                 dismissalCount(dismissalBreakdown, DismissalType.BOWLED),
                 dismissalCount(dismissalBreakdown, DismissalType.CAUGHT),
                 dismissalCount(dismissalBreakdown, DismissalType.LBW),
@@ -530,6 +532,7 @@ public class StatisticsService {
             aggregate.totalWickets += defaultZero(bowling.getWickets());
             aggregate.wides += defaultZero(bowling.getWides());
             aggregate.noBalls += defaultZero(bowling.getNoBalls());
+            aggregate.dotBalls += defaultZero(bowling.getDotBalls());
             aggregate.bestBowlingWickets = Math.max(aggregate.bestBowlingWickets, defaultZero(bowling.getWickets()));
             if (aggregate.bestBowlingWickets == defaultZero(bowling.getWickets())) {
                 aggregate.bestBowlingRuns = aggregate.bestBowlingRuns == 0
@@ -732,6 +735,7 @@ public class StatisticsService {
         private int totalWickets;
         private int wides;
         private int noBalls;
+        private int dotBalls;
         private int bestBowlingWickets;
         private int bestBowlingRuns;
         private int playerOfMatchAwards;
@@ -768,6 +772,7 @@ public class StatisticsService {
         int totalWickets() { return totalWickets; }
         int wides() { return wides; }
         int noBalls() { return noBalls; }
+        int dotBalls() { return dotBalls; }
         int bestBowlingWickets() { return bestBowlingWickets; }
         int bestBowlingRuns() { return bestBowlingRuns; }
         int playerOfMatchAwards() { return playerOfMatchAwards; }

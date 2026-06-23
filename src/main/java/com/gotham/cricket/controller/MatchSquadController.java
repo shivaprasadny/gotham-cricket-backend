@@ -30,8 +30,8 @@ public class MatchSquadController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    @Operation(summary = "Get match squad", description = "Returns the squad configured for a match. Requires ADMIN or CAPTAIN.")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
+    @Operation(summary = "Get match squad", description = "Returns the selected squad for authenticated club members. Editing remains restricted to ADMIN and CAPTAIN.")
     public List<MatchSquadResponse> getSquadByMatch(@PathVariable Long matchId) {
         return matchSquadService.getSquadByMatch(matchId);
     }

@@ -34,4 +34,17 @@ public class MatchSquad {
 
     @Column(name = "role_in_match")
     private String roleInMatch;
+
+    // Leadership and wicketkeeper are independent so C+WK and VC+WK are valid.
+    @Column(name = "is_captain")
+    private Boolean isCaptain = false;
+
+    @Column(name = "is_vice_captain")
+    private Boolean isViceCaptain = false;
+
+    @Column(name = "is_wicket_keeper")
+    private Boolean isWicketKeeper = false;
+
+    @Column(name = "squad_position")
+    private Integer squadPosition;
 }

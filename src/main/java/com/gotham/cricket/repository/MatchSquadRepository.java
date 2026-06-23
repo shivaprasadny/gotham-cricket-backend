@@ -20,4 +20,5 @@ public interface MatchSquadRepository extends JpaRepository<MatchSquad, Long> {
     void deleteByMatchId(@Param("matchId") Long matchId);
     // Get all squad rows for one match
     List<MatchSquad> findByMatchId(Long matchId);
+    Optional<MatchSquad> findByMatchIdAndSquadPosition(Long matchId, Integer squadPosition);
 }

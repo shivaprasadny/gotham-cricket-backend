@@ -19,6 +19,7 @@ public class AdminService {
 
     // Notification service for backend notifications
     private final NotificationService notificationService;
+    private final ChatRoomProvisioningService chatRoomProvisioningService;
 
     // Get all pending members
     public List<UserApprovalResponse> getPendingMembers() {
@@ -47,6 +48,7 @@ public class AdminService {
         }
 
         userRepository.save(user);
+        chatRoomProvisioningService.addApprovedMemberToSharedRooms(user);
 
         // Notify admins only that a member was approved
         notificationService.createForRole(
@@ -119,6 +121,7 @@ public class AdminService {
 
         user.setStatus(UserStatus.APPROVED);
         userRepository.save(user);
+        chatRoomProvisioningService.addApprovedMemberToSharedRooms(user);
 
         return "User activated successfully";
     }

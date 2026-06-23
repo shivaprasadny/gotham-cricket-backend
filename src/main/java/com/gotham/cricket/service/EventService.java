@@ -24,6 +24,7 @@ public class EventService {
     private final EventAvailabilityRepository eventAvailabilityRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ChatRoomProvisioningService chatRoomProvisioningService;
 
     // Create a new club event
     public String createEvent(String email, CreateEventRequest request) {
@@ -38,6 +39,7 @@ public class EventService {
         event.setCreatedBy(user.getFullName());
 
         eventRepository.save(event);
+        chatRoomProvisioningService.ensureEventRoom(event);
         notificationService.createForAllApprovedUsers(
                 "New Event Added",
                 event.getTitle() + " at " + event.getLocation(),
@@ -113,6 +115,7 @@ public class EventService {
     }
 
     // Submit or update one user's event response
+    @Transactional
     public String submitAvailability(Long eventId, String email, EventAvailabilityRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -130,6 +133,7 @@ public class EventService {
         availability.setMessage(request.getMessage());
 
         eventAvailabilityRepository.save(availability);
+        chatRoomProvisioningService.syncEventRoomMembership(event);
 
         return "Event availability submitted successfully";
     }

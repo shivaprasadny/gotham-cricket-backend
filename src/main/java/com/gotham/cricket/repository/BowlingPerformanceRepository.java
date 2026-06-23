@@ -19,7 +19,7 @@ public interface BowlingPerformanceRepository extends JpaRepository<BowlingPerfo
             """)
     List<BowlingPerformance> findChartRowsByInningsIds(@Param("inningsIds") List<Long> inningsIds);
 
-    @Modifying
+    @Modifying(flushAutomatically = true)
     @Query("delete from BowlingPerformance b where b.innings.id in :inningsIds")
     void deleteByInningsIds(@Param("inningsIds") List<Long> inningsIds);
 

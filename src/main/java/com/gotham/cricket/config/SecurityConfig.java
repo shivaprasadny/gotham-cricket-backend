@@ -23,17 +23,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
+                .csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        // WebSocket handshake endpoint
+                        .requestMatchers("/ws-chat/**").permitAll()
+
                         .requestMatchers(HttpMethod.GET, "/api/announcements/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/matches/**").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+
                         .anyRequest().authenticated()
                 )
 

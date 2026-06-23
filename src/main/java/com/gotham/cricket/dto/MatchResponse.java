@@ -28,6 +28,7 @@ public class MatchResponse {
     private String venue;
 
     private String matchType;
+    private String homeAway;
     private String matchFormat;
 
     private String notes;
