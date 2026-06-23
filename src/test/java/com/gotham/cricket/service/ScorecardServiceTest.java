@@ -116,6 +116,25 @@ class ScorecardServiceTest {
     }
 
     @Test
+    void bowlingRowsKeepTheSubmittedScorecardOrder() {
+        Match match = saveMatch();
+        SaveScorecardRequest request = minimalRequest();
+        request.getInnings().getFirst().setBowlingEntries(List.of(
+                bowlingEntry(null, "Opening Bowler"),
+                bowlingEntry(null, "First Change")
+        ));
+
+        var response = scorecardService.createDraft(match.getId(), request, "admin@gotham.com");
+
+        assertEquals(
+                List.of("Opening Bowler", "First Change"),
+                response.getInnings().getFirst().getBowling().stream()
+                        .map(row -> row.getPlayerName())
+                        .toList()
+        );
+    }
+
+    @Test
     void deleteDraftRemovesAllChildrenWithoutDeletingMatchOrPlayers() {
         Match match = saveMatch();
         User player = saveUser(UserStatus.APPROVED, "Delete", "Player");

@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface BowlingPerformanceRepository extends JpaRepository<BowlingPerformance, Long> {
     List<BowlingPerformance> findByInningsId(Long inningsId);
+    List<BowlingPerformance> findByInningsIdOrderByBowlingPositionAscIdAsc(Long inningsId);
     @Query("""
             select bp
             from BowlingPerformance bp

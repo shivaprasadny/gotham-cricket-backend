@@ -35,6 +35,9 @@ public class BowlingPerformance {
     @Column(name = "external_player_name")
     private String externalPlayerName;
 
+    @Column(name = "bowling_position", nullable = false, columnDefinition = "integer default 0")
+    private Integer bowlingPosition = 0;
+
     @Column(name = "legal_balls", nullable = false)
     private Integer legalBalls = 0;
 

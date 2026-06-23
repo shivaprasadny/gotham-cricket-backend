@@ -271,7 +271,8 @@ public class ScorecardService {
         }
 
         Set<Long> playerIds = new HashSet<>();
-        for (BowlingEntryRequest entry : bowlingEntries) {
+        for (int index = 0; index < bowlingEntries.size(); index++) {
+            BowlingEntryRequest entry = bowlingEntries.get(index);
             validateBowlingEntry(entry);
             Long playerId = entry.getPlayerId();
             if (playerId != null && !playerIds.add(playerId)) {
@@ -282,6 +283,8 @@ public class ScorecardService {
             row.setInnings(innings);
             row.setPlayer(playerId != null ? resolveApprovedUser(playerId) : null);
             row.setExternalPlayerName(normalize(entry.getExternalPlayerName()));
+            // Preserve the manager-selected bowling order for the scorecard display.
+            row.setBowlingPosition(index + 1);
             row.setLegalBalls(defaultZero(entry.getLegalBalls()));
             row.setMaidens(defaultZero(entry.getMaidens()));
             row.setRunsConceded(defaultZero(entry.getRunsConceded()));
@@ -612,7 +615,8 @@ public class ScorecardService {
                 .stream()
                 .map(this::buildBattingResponse)
                 .toList();
-        List<BowlingPerformanceResponse> bowling = bowlingPerformanceRepository.findByInningsId(inningsScore.getId())
+        List<BowlingPerformanceResponse> bowling = bowlingPerformanceRepository
+                .findByInningsIdOrderByBowlingPositionAscIdAsc(inningsScore.getId())
                 .stream()
                 .map(this::buildBowlingResponse)
                 .toList();
