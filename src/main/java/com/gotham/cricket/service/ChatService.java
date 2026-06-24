@@ -25,6 +25,7 @@ import com.gotham.cricket.dto.CreateGroupChatRequest;
 import com.gotham.cricket.dto.ChatRoomMemberResponse;
 import com.gotham.cricket.dto.AddChatRoomMemberRequest;
 import java.util.UUID;
+import com.gotham.cricket.enums.ChatMessageType;
 
 import java.util.Comparator;
 import java.util.List;
@@ -319,9 +320,29 @@ public class ChatService {
                 message.getSenderId(),
                 sender == null ? "Unknown Member" : sender.getFullName(),
                 message.getContent(),
+                message.getType(),
                 message.getCreatedAt()
         );
     }
+
+    private ChatMessageResponse createSystemMessage(
+            ChatRoom room,
+            User actor,
+            String content
+    ) {
+        Message saved = messageRepository.save(
+                Message.builder()
+                        .chatRoom(room)
+                        .senderId(actor.getId())
+                        .content(content)
+                        .type(ChatMessageType.SYSTEM)
+                        .build()
+        );
+
+        return toResponse(saved, actor);
+    }
+
+
     // Build room name for the logged-in user
 // DIRECT chat should show only the other person's name
     private String getDisplayRoomName(ChatRoom room, User currentUser) {
@@ -366,15 +387,20 @@ public class ChatService {
                     addMember(room, member.getId(), false);
                 });
 
-        ChatRoomMember creatorMembership = requireMembership(room.getId(), creator.getId());
-
+        ChatMessageResponse systemMessageResponse = createSystemMessage(
+                room,
+                creator,
+                creator.getFullName() + " created the group"
+        );
+        ChatRoomMember creatorMembership =
+                requireMembership(room.getId(), creator.getId());
         return new ChatRoomResponse(
                 room.getId(),
                 room.getType(),
                 room.getReferenceId(),
                 room.getName(),
                 0,
-                null,
+                systemMessageResponse,
                 creatorMembership.isMuted()
         );
     }
@@ -418,6 +444,11 @@ public class ChatService {
                 .orElseThrow(() -> new ChatNotFoundException("Member not found"));
 
         addMember(room, newMember.getId(), false);
+        createSystemMessage(
+                room,
+                currentUser,
+                currentUser.getFullName() + " added " + newMember.getFullName()
+        );
 
         return new ChatRoomMemberResponse(
                 newMember.getId(),
@@ -452,6 +483,13 @@ public class ChatService {
             throw new IllegalArgumentException("Group must have at least one admin");
         }
 
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+        createSystemMessage(
+                room,
+                currentUser,
+                currentUser.getFullName() + " removed " + targetUser.getFullName()
+        );
         chatRoomMemberRepository.deleteByChatRoomIdAndUserId(roomId, userId);
     }
 
@@ -506,8 +544,15 @@ public class ChatService {
         targetMembership.setRoomAdmin(true);
         chatRoomMemberRepository.save(targetMembership);
 
+
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+        createSystemMessage(
+                room,
+                currentUser,
+                currentUser.getFullName() + " made " + targetUser.getFullName() + " an admin"
+        );
+
 
         return new ChatRoomMemberResponse(
                 targetUser.getId(),
@@ -543,8 +588,16 @@ public class ChatService {
         targetMembership.setRoomAdmin(false);
         chatRoomMemberRepository.save(targetMembership);
 
+
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+        createSystemMessage(
+                room,
+                currentUser,
+                currentUser.getFullName() + " removed " + targetUser.getFullName() + " as admin"
+        );
+
+
 
         return new ChatRoomMemberResponse(
                 targetUser.getId(),
@@ -579,28 +632,17 @@ public class ChatService {
         ChatRoom saved = chatRoomRepository.save(room);
 
 // Create system-style message in the chat
-        Message systemMessage = messageRepository.save(
-                Message.builder()
-                        .chatRoom(saved)
-                        .senderId(currentUser.getId())
-                        .content(currentUser.getFullName()
-                                + " renamed the group from \""
-                                + oldName
-                                + "\" to \""
-                                + cleanName
-                                + "\"")
-                        .build()
-        );
 
-        ChatMessageResponse systemMessageResponse =
-                toResponse(systemMessage, currentUser);
 
-        eventPublisher.publishEvent(
-                new ChatMessageCreatedEvent(
-                        systemMessageResponse,
-                        saved.getName(),
-                        currentUser.getId()
-                )
+        ChatMessageResponse systemMessageResponse = createSystemMessage(
+                saved,
+                currentUser,
+                currentUser.getFullName()
+                        + " renamed the group from \""
+                        + oldName
+                        + "\" to \""
+                        + cleanName
+                        + "\""
         );
 
         return new ChatRoomResponse(
@@ -636,6 +678,11 @@ public class ChatService {
                 throw new IllegalArgumentException("Make another member admin before leaving");
             }
         }
+        createSystemMessage(
+                room,
+                currentUser,
+                currentUser.getFullName() + " left the group"
+        );
 
         chatRoomMemberRepository.deleteByChatRoomIdAndUserId(roomId, currentUser.getId());
     }

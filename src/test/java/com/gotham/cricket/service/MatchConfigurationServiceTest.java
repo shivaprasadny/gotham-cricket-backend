@@ -56,7 +56,11 @@ class MatchConfigurationServiceTest {
         User player = saveUser("Role Player", Role.PLAYER);
 
         MatchSquadRequest captainKeeper = squadRequest(player, true, false, true);
-        matchSquadService.addOrUpdateSquadMember(match.getId(), captainKeeper);
+        matchSquadService.addOrUpdateSquadMember(
+                match.getId(),
+                captainKeeper,
+                "test@test.com"
+        );
 
         var saved = matchSquadService.getSquadByMatch(match.getId()).getFirst();
         assertTrue(saved.getIsCaptain());
@@ -66,8 +70,10 @@ class MatchConfigurationServiceTest {
         MatchSquadRequest invalid = squadRequest(player, true, true, true);
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
-                () -> matchSquadService.addOrUpdateSquadMember(match.getId(), invalid)
-        );
+                () -> matchSquadService.addOrUpdateSquadMember(
+                        match.getId(),
+                        invalid,
+                        "test@test.com"));
         assertEquals("The same player cannot be Captain and Vice Captain", exception.getMessage());
     }
 
@@ -80,7 +86,11 @@ class MatchConfigurationServiceTest {
         request.setIsPlayingXi(false);
         request.setRoleInMatch("IMPACT_PLAYER");
         request.setSquadPosition(12);
-        matchSquadService.addOrUpdateSquadMember(match.getId(), request);
+        matchSquadService.addOrUpdateSquadMember(
+                match.getId(),
+                request,
+                "test@test.com"
+        );
 
         var saved = matchSquadService.getSquadByMatch(match.getId()).getFirst();
         assertEquals("IMPACT_PLAYER", saved.getRoleInMatch());

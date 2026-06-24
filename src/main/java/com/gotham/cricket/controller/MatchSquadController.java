@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/matches/{matchId}/squad")
@@ -24,9 +25,16 @@ public class MatchSquadController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     @Operation(summary = "Add or update a squad member", description = "Adds a user to a match squad or updates the selection. Requires ADMIN or CAPTAIN.")
-    public String addOrUpdateSquadMember(@PathVariable Long matchId,
-                                         @Valid @RequestBody MatchSquadRequest request) {
-        return matchSquadService.addOrUpdateSquadMember(matchId, request);
+    public String addOrUpdateSquadMember(
+            @PathVariable Long matchId,
+            @Valid @RequestBody MatchSquadRequest request,
+            Authentication authentication
+    ) {
+        return matchSquadService.addOrUpdateSquadMember(
+                matchId,
+                request,
+                authentication.getName()
+        );
     }
 
     @GetMapping
@@ -39,8 +47,15 @@ public class MatchSquadController {
     @DeleteMapping("/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     @Operation(summary = "Remove a squad member", description = "Removes a user from a match squad. Requires ADMIN or CAPTAIN.")
-    public String removeSquadMember(@PathVariable Long matchId,
-                                    @PathVariable Long userId) {
-        return matchSquadService.removeSquadMember(matchId, userId);
+    public String removeSquadMember(
+            @PathVariable Long matchId,
+            @PathVariable Long userId,
+            Authentication authentication
+    ) {
+        return matchSquadService.removeSquadMember(
+                matchId,
+                userId,
+                authentication.getName()
+        );
     }
 }

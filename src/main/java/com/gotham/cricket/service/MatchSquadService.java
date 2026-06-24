@@ -16,6 +16,7 @@ import jakarta.transaction.Transactional;
 
 import java.util.List;
 
+
 @Service
 @RequiredArgsConstructor
 public class MatchSquadService {
@@ -27,7 +28,11 @@ public class MatchSquadService {
     private final ChatRoomProvisioningService chatRoomProvisioningService;
 
     @Transactional
-    public String addOrUpdateSquadMember(Long matchId, MatchSquadRequest request) {
+    public String addOrUpdateSquadMember(
+            Long matchId,
+            MatchSquadRequest request,
+            String actorEmail
+    ) {
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
 
@@ -126,7 +131,10 @@ public class MatchSquadService {
         squad.setSquadPosition(request.getSquadPosition());
 
         matchSquadRepository.save(squad);
-        chatRoomProvisioningService.syncMatchRoomMembership(match);
+        User actor = userRepository.findByEmailIgnoreCase(actorEmail)
+                .orElseThrow(() -> new RuntimeException("Actor not found"));
+
+        chatRoomProvisioningService.syncMatchRoomMembership(match, actor);
 
         return "Squad member saved successfully";
     }
@@ -164,7 +172,11 @@ public class MatchSquadService {
     }
 
     @Transactional
-    public String removeSquadMember(Long matchId, Long userId) {
+    public String removeSquadMember(
+            Long matchId,
+            Long userId,
+            String actorEmail
+    ) {
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found with id: " + matchId));
 
@@ -175,7 +187,10 @@ public class MatchSquadService {
                 .orElseThrow(() -> new RuntimeException("User is not part of this squad"));
 
         matchSquadRepository.delete(squad);
-        chatRoomProvisioningService.syncMatchRoomMembership(match);
+        User actor = userRepository.findByEmailIgnoreCase(actorEmail)
+                .orElseThrow(() -> new RuntimeException("Actor not found"));
+
+        chatRoomProvisioningService.syncMatchRoomMembership(match, actor);
 
         return "Squad member removed successfully";
     }

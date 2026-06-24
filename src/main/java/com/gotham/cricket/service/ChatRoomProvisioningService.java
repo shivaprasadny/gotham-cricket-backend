@@ -25,6 +25,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.gotham.cricket.enums.Role;
 
 @Service
 @RequiredArgsConstructor
@@ -115,12 +116,38 @@ public class ChatRoomProvisioningService {
 
     @Transactional
     public void syncMatchRoomMembership(Match match) {
+        syncMatchRoomMembership(match, null);
+    }
+
+    @Transactional
+    public void syncMatchRoomMembership(Match match, User actor) {
         ChatRoom room = ensureMatchRoom(match);
-        Set<Long> eligibleUserIds = matchSquadRepository.findByMatchId(match.getId()).stream()
+
+        Set<Long> squadUserIds = matchSquadRepository.findByMatchId(match.getId())
+                .stream()
                 .map(squad -> squad.getUser().getId())
                 .filter(this::isApprovedUser)
                 .collect(Collectors.toSet());
-        replaceMembers(room, eligibleUserIds);
+
+        Set<Long> adminUserIds = approvedUsers()
+                .stream()
+                .filter(user -> user.getRole() == Role.ADMIN)
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        Set<Long> eligibleUserIds = new java.util.HashSet<>();
+        eligibleUserIds.addAll(squadUserIds);
+        eligibleUserIds.addAll(adminUserIds);
+
+        Set<Long> roomAdminUserIds = new java.util.HashSet<>();
+        roomAdminUserIds.addAll(adminUserIds);
+
+        if (actor != null && actor.getStatus() == UserStatus.APPROVED) {
+            eligibleUserIds.add(actor.getId());
+            roomAdminUserIds.add(actor.getId());
+        }
+
+        replaceMembers(room, eligibleUserIds, roomAdminUserIds);
     }
 
     @Transactional
@@ -131,7 +158,7 @@ public class ChatRoomProvisioningService {
                 .map(availability -> availability.getUser().getId())
                 .filter(this::isApprovedUser)
                 .collect(Collectors.toSet());
-        replaceMembers(room, eligibleUserIds);
+        replaceMembers(room, eligibleUserIds, Set.of());
     }
 
     private ChatRoom ensureRoom(
@@ -173,24 +200,45 @@ public class ChatRoomProvisioningService {
                 });
     }
 
+
     private void addMembers(ChatRoom room, List<User> users) {
-        users.forEach(user -> addMember(room, user.getId()));
+        users.forEach(user -> addMember(room, user.getId(), false));
     }
 
     private void addMember(ChatRoom room, Long userId) {
-        if (!chatRoomMemberRepository.existsByChatRoomIdAndUserId(room.getId(), userId)) {
-            chatRoomMemberRepository.save(ChatRoomMember.builder()
-                    .chatRoom(room)
-                    .userId(userId)
-                    .build());
-        }
+        addMember(room, userId, false);
     }
 
-    private void replaceMembers(ChatRoom room, Set<Long> eligibleUserIds) {
+    private void addMember(ChatRoom room, Long userId, boolean roomAdmin) {
+        chatRoomMemberRepository.findByChatRoomIdAndUserId(room.getId(), userId)
+                .ifPresentOrElse(
+                        existing -> {
+                            if (roomAdmin && !existing.isRoomAdmin()) {
+                                existing.setRoomAdmin(true);
+                                chatRoomMemberRepository.save(existing);
+                            }
+                        },
+                        () -> chatRoomMemberRepository.save(ChatRoomMember.builder()
+                                .chatRoom(room)
+                                .userId(userId)
+                                .hidden(false)
+                                .muted(false)
+                                .roomAdmin(roomAdmin)
+                                .build())
+                );
+    }
+    private void replaceMembers(
+            ChatRoom room,
+            Set<Long> eligibleUserIds,
+            Set<Long> roomAdminUserIds
+    ) {
         chatRoomMemberRepository.findByChatRoomId(room.getId()).stream()
                 .filter(member -> !eligibleUserIds.contains(member.getUserId()))
                 .forEach(chatRoomMemberRepository::delete);
-        eligibleUserIds.forEach(userId -> addMember(room, userId));
+
+        eligibleUserIds.forEach(userId ->
+                addMember(room, userId, roomAdminUserIds.contains(userId))
+        );
     }
 
     private boolean isApprovedUser(Long userId) {

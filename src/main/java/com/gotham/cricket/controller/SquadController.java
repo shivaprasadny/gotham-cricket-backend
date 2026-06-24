@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/squad")
@@ -26,9 +27,10 @@ public class SquadController {
     public String addPlayer(
             @PathVariable Long matchId,
             @PathVariable Long userId,
-            @RequestParam boolean playingXI
+            @RequestParam boolean playingXI,
+            Authentication authentication
     ) {
-        return squadService.addPlayer(matchId, userId, playingXI);
+        return squadService.addPlayer(matchId, userId, playingXI, authentication.getName());
     }
 
     // All logged-in roles can view squad
@@ -45,8 +47,9 @@ public class SquadController {
     @Operation(summary = "Remove a player from a squad", description = "Removes a user from a match squad. Requires ADMIN or CAPTAIN.")
     public String removePlayer(
             @PathVariable Long matchId,
-            @PathVariable Long userId
+            @PathVariable Long userId,
+            Authentication authentication
     ) {
-        return squadService.removePlayer(matchId, userId);
+        return squadService.removePlayer(matchId, userId, authentication.getName());
     }
 }

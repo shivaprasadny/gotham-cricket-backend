@@ -1,5 +1,6 @@
 package com.gotham.cricket.entity;
 
+import com.gotham.cricket.enums.ChatMessageType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,13 +27,17 @@ public class Message {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_room_id", nullable = false)
-    private com.gotham.cricket.entity.ChatRoom chatRoom;
+    private ChatRoom chatRoom;
 
     @Column(name = "sender_id", nullable = false)
     private Long senderId;
 
     @Column(nullable = false, length = 2000)
     private String content;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private ChatMessageType type;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -41,6 +46,10 @@ public class Message {
     void prePersist() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+
+        if (type == null) {
+            type = ChatMessageType.CHAT;
         }
     }
 }

@@ -18,11 +18,12 @@ public class SquadService {
     private final SquadRepository squadRepository;
     private final MatchRepository matchRepository;
     private final UserRepository userRepository;
+    private final ChatRoomProvisioningService chatRoomProvisioningService;
 
     /**
      * Add or update player in squad
      */
-    public String addPlayer(Long matchId, Long userId, boolean playingXI) {
+    public String addPlayer(Long matchId, Long userId, boolean playingXI, String actorEmail) {
 
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
@@ -39,6 +40,11 @@ public class SquadService {
         squad.setPlayingXi(playingXI);
 
         squadRepository.save(squad);
+
+        User actor = userRepository.findByEmailIgnoreCase(actorEmail)
+                .orElseThrow(() -> new RuntimeException("Actor not found"));
+
+        chatRoomProvisioningService.syncMatchRoomMembership(match, actor);
 
         return "Player added/updated in squad";
     }
@@ -57,7 +63,7 @@ public class SquadService {
     /**
      * Remove player from squad
      */
-    public String removePlayer(Long matchId, Long userId) {
+    public String removePlayer(Long matchId, Long userId, String actorEmail) {
 
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
@@ -69,6 +75,11 @@ public class SquadService {
                 .orElseThrow(() -> new RuntimeException("Player not in squad"));
 
         squadRepository.delete(squad);
+
+        User actor = userRepository.findByEmailIgnoreCase(actorEmail)
+                .orElseThrow(() -> new RuntimeException("Actor not found"));
+
+        chatRoomProvisioningService.syncMatchRoomMembership(match, actor);
 
         return "Player removed from squad";
     }
