@@ -19,7 +19,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Events", description = "Manage club events and event attendance availability")
 public class EventController {
 

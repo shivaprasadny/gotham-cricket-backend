@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/matches/{matchId}/scorecard")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Scorecards", description = "Manual scorecard entry, publishing, reopening, and deletion")
 public class ScorecardController {
 

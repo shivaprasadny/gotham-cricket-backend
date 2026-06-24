@@ -16,7 +16,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Administration", description = "Approve members and manage user roles and account status")
 public class AdminController {
 

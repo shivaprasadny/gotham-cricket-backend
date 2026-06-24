@@ -15,7 +15,12 @@ public class EventResponse {
     private String description;
     private LocalDateTime eventDate;
     private String location;
-    private String createdBy;
+
+    // ✅ Changed from plain email string to user ID + name
+    // If user email changes, this still works correctly
+    private Long createdByUserId;
+    private String createdByName;
+
     private LocalDateTime createdAt;
 
     // Current logged-in user's availability for this event

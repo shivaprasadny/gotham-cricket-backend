@@ -17,7 +17,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/availability")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Match Availability", description = "Submit and review player availability for matches")
 public class AvailabilityController {
 

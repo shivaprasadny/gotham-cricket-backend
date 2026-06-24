@@ -46,6 +46,9 @@ public class ChatRoomMember {
     @Column(name = "room_admin", nullable = false)
     private boolean roomAdmin;
 
+    @Column(nullable = false)
+    private boolean favorite;
+
     @PrePersist
     void prePersist() {
         if (joinedAt == null) {

@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/members")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Members", description = "View approved club members and member profiles")
 public class MemberController {
 

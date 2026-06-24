@@ -9,5 +9,6 @@ public record ChatRoomResponse(
         String name,
         long unreadCount,
         ChatMessageResponse lastMessage,
-        boolean muted
+        boolean muted,
+        boolean favorite
 ) {}

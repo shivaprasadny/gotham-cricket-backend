@@ -36,10 +36,15 @@ public class EventService {
         event.setDescription(request.getDescription());
         event.setEventDate(request.getEventDate());
         event.setLocation(request.getLocation());
-        event.setCreatedBy(user.getFullName());
+
+        // ✅ Store User object instead of plain email string
+        event.setCreatedBy(user);
 
         eventRepository.save(event);
-        chatRoomProvisioningService.ensureEventRoom(event);
+
+        // Immediately adds ADMINs + event creator as room admins
+        chatRoomProvisioningService.syncEventRoomMembership(event);
+
         notificationService.createForAllApprovedUsers(
                 "New Event Added",
                 event.getTitle() + " at " + event.getLocation(),
@@ -51,7 +56,7 @@ public class EventService {
         return "Event created successfully";
     }
 
-    // Return all events with current user's response
+    // Return all events with current user's availability status
     public List<EventResponse> getAllEvents(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -63,21 +68,12 @@ public class EventService {
                             .findByEventIdAndUserId(event.getId(), user.getId())
                             .orElse(null);
 
-                    return new EventResponse(
-                            event.getId(),
-                            event.getTitle(),
-                            event.getDescription(),
-                            event.getEventDate(),
-                            event.getLocation(),
-                            event.getCreatedBy(),
-                            event.getCreatedAt(),
-                            availability != null ? availability.getStatus() : null
-                    );
+                    return toResponse(event, availability);
                 })
                 .toList();
     }
 
-    // Update event
+    // Update event details
     public String updateEvent(Long eventId, CreateEventRequest request) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
@@ -88,6 +84,7 @@ public class EventService {
         event.setLocation(request.getLocation());
 
         eventRepository.save(event);
+
         notificationService.createForAllApprovedUsers(
                 "Event Updated",
                 event.getTitle() + " at " + event.getLocation(),
@@ -99,22 +96,20 @@ public class EventService {
         return "Event updated successfully";
     }
 
-    // Delete event
+    // Delete event and all its availability records
     @Transactional
     public String deleteEvent(Long eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
-        // delete child rows first
+        // Delete child rows first to avoid FK constraint violations
         eventAvailabilityRepository.deleteByEventId(eventId);
-
-        // then delete event
         eventRepository.delete(event);
 
         return "Event deleted successfully";
     }
 
-    // Submit or update one user's event response
+    // Submit or update one user's availability for an event
     @Transactional
     public String submitAvailability(Long eventId, String email, EventAvailabilityRequest request) {
         User user = userRepository.findByEmail(email)
@@ -123,6 +118,7 @@ public class EventService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
+        // Reuse existing record if user already responded, otherwise create new
         EventAvailability availability = eventAvailabilityRepository
                 .findByEventIdAndUserId(eventId, user.getId())
                 .orElse(new EventAvailability());
@@ -133,6 +129,8 @@ public class EventService {
         availability.setMessage(request.getMessage());
 
         eventAvailabilityRepository.save(availability);
+
+        // Re-sync chat room membership based on updated availability
         chatRoomProvisioningService.syncEventRoomMembership(event);
 
         return "Event availability submitted successfully";
@@ -151,6 +149,8 @@ public class EventService {
                 ))
                 .toList();
     }
+
+    // Get single event with current user's availability status
     public EventResponse getEventById(Long id, String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -162,13 +162,20 @@ public class EventService {
                 .findByEventIdAndUserId(id, user.getId())
                 .orElse(null);
 
+        return toResponse(event, availability);
+    }
+
+    // ✅ Helper to build EventResponse from Event + availability
+    // Avoids repeating the same mapping logic in every method
+    private EventResponse toResponse(Event event, EventAvailability availability) {
         return new EventResponse(
                 event.getId(),
                 event.getTitle(),
                 event.getDescription(),
                 event.getEventDate(),
                 event.getLocation(),
-                event.getCreatedBy(),
+                event.getCreatedBy().getId(),
+                event.getCreatedBy().getFullName(),
                 event.getCreatedAt(),
                 availability != null ? availability.getStatus() : null
         );

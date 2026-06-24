@@ -15,7 +15,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/fees")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Fees", description = "Create, assign, collect, waive, split, and report member fees")
 public class FeeController {
 

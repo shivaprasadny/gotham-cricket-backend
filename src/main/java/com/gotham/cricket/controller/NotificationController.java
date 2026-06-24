@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Notifications", description = "Read, clear, and configure push notifications")
 public class NotificationController {
 
@@ -61,21 +60,14 @@ public class NotificationController {
         return notificationService.savePushToken(authentication.getName(), request.getToken());
     }
 
-//    // Save Expo push token for logged-in user
-//    @PostMapping("/token")
-//    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
-//    public String savePushToken(
-//            @RequestBody Map<String, String> request,
-//            Authentication authentication
-//    ) {
-//        // Logged-in user's email from JWT
-//        String email = authentication.getName();
-//
-//        // Token sent from mobile app
-//        String token = request.get("token");
-//
-//        // Save token in database
-//        return notificationService.savePushToken(email, token);
-//    }
-
+    @DeleteMapping("/token")
+    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
+    @Operation(summary = "Remove push token", description = "Removes the device push token on logout so the user no longer receives notifications on this device.")
+    public String removePushToken(
+            @RequestBody PushTokenRequest request,
+            Authentication authentication
+    ) {
+        notificationService.removeToken(authentication.getName(), request.getToken());
+        return "Push token removed";
+    }
 }

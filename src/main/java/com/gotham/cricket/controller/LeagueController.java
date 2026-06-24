@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/leagues")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Leagues", description = "Create and manage cricket leagues")
 public class LeagueController {
 

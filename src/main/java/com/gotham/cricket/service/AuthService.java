@@ -8,11 +8,13 @@ import com.gotham.cricket.dto.ResetPasswordRequest;
 import com.gotham.cricket.dto.VerifyEmailCodeRequest;
 import com.gotham.cricket.entity.EmailVerificationToken;
 import com.gotham.cricket.entity.MemberProfile;
+import com.gotham.cricket.entity.PasswordResetCode;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.enums.UserStatus;
 import com.gotham.cricket.repository.EmailVerificationTokenRepository;
 import com.gotham.cricket.repository.MemberProfileRepository;
+import com.gotham.cricket.repository.PasswordResetCodeRepository;
 import com.gotham.cricket.repository.UserRepository;
 import com.gotham.cricket.security.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ public class AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private final RateLimitService rateLimitService;
+    private final PasswordResetCodeRepository passwordResetCodeRepository;
 
     // =========================
     // REGISTER USER
@@ -46,7 +49,7 @@ public class AuthService {
     @Transactional
     public String register(RegisterRequest request) {
 
-        // Normalize email
+        // Normalize email to lowercase and trim whitespace
         String email = request.getEmail() == null
                 ? ""
                 : request.getEmail().trim().toLowerCase();
@@ -60,7 +63,17 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
         }
 
-        // Prevent duplicate registration
+        // ✅ Rate limit registration — max 3 attempts per 60 minutes per email
+        // Prevents spam account creation from the same email
+        String registerKey = "REGISTER:" + email;
+        if (!rateLimitService.isAllowed(registerKey, 3, 60)) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many registration attempts. Please try again later."
+            );
+        }
+
+        // Prevent duplicate accounts with same email
         if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already exists");
         }
@@ -68,7 +81,7 @@ public class AuthService {
         String firstName = request.getFirstName() == null ? "" : request.getFirstName().trim();
         String lastName = request.getLastName() == null ? "" : request.getLastName().trim();
 
-        // Create user with EMAIL_PENDING status
+        // Create new user — starts with EMAIL_PENDING until they verify email
         User user = new User();
         user.setFirstName(firstName);
         user.setLastName(lastName);
@@ -82,7 +95,7 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // Create member profile
+        // Create linked member profile with cricket-specific details
         MemberProfile profile = new MemberProfile();
         profile.setUser(savedUser);
         profile.setNickname(request.getNickname());
@@ -94,7 +107,7 @@ public class AuthService {
 
         memberProfileRepository.save(profile);
 
-        // Create 6-digit verification code
+        // Generate 6-digit email verification code
         String code = generateSixDigitCode();
 
         EmailVerificationToken verificationToken = new EmailVerificationToken();
@@ -105,8 +118,8 @@ public class AuthService {
 
         emailVerificationTokenRepository.save(verificationToken);
 
-        // Send verification email
-        // If email fails, @Transactional rolls back user/profile/token
+        // Send verification email — if this fails, @Transactional rolls back
+        // the user, profile, and token so DB stays clean
         try {
             emailService.sendEmail(
                     savedUser.getEmail(),
@@ -148,7 +161,7 @@ public class AuthService {
                 ? ""
                 : request.getPassword().trim();
 
-        // Validate input
+        // Validate input before hitting the database
         if (email.isBlank() || rawPassword.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -156,14 +169,24 @@ public class AuthService {
             );
         }
 
-        // Find user
+        // ✅ Rate limit login — max 5 attempts per 15 minutes per email
+        // Prevents brute force password attacks
+        String loginKey = "LOGIN:" + email;
+        if (!rateLimitService.isAllowed(loginKey, 5, 15)) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many login attempts. Please try again in 15 minutes."
+            );
+        }
+
+        // Find user by email — return generic error to avoid user enumeration
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED,
                         "Invalid credentials"
                 ));
 
-        // Verify password
+        // Verify password matches stored hash
         boolean passwordMatches = passwordEncoder.matches(rawPassword, user.getPassword());
 
         if (!passwordMatches) {
@@ -173,7 +196,7 @@ public class AuthService {
             );
         }
 
-        // Block users who have not verified email
+        // Block users who have not verified their email yet
         if (user.getStatus() == UserStatus.EMAIL_PENDING) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -205,7 +228,11 @@ public class AuthService {
             );
         }
 
-        // Generate JWT token
+        // ✅ Clear login rate limit on successful login
+        // so legitimate users are not locked out after password change etc.
+        rateLimitService.clear(loginKey);
+
+        // Generate JWT token for authenticated session
         String token = jwtService.generateToken(user.getEmail());
 
         return new LoginResponse(
@@ -252,6 +279,7 @@ public class AuthService {
                                 "Verification code not found"
                         ));
 
+        // Prevent reuse of already verified codes
         if (verificationToken.isUsed()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -259,6 +287,7 @@ public class AuthService {
             );
         }
 
+        // Check code has not expired (10 minute window)
         if (verificationToken.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -266,6 +295,7 @@ public class AuthService {
             );
         }
 
+        // Check code matches
         if (!verificationToken.getToken().equals(code)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -273,14 +303,14 @@ public class AuthService {
             );
         }
 
-        // Email verified, now wait for admin approval
+        // Email verified — move to PENDING status, waiting for admin approval
         user.setStatus(UserStatus.PENDING);
         verificationToken.setUsed(true);
 
         userRepository.save(user);
         emailVerificationTokenRepository.save(verificationToken);
 
-        // Notify admins only after email is verified
+        // Notify all admins that a new member is waiting for approval
         notificationService.createForRole(
                 "ADMIN",
                 "New Member Join Request",
@@ -315,6 +345,7 @@ public class AuthService {
                         "User not found"
                 ));
 
+        // Only resend if user is still in EMAIL_PENDING status
         if (user.getStatus() != UserStatus.EMAIL_PENDING) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -322,8 +353,10 @@ public class AuthService {
             );
         }
 
+        // Generate fresh 6-digit code
         String code = generateSixDigitCode();
 
+        // Reuse existing token record if one exists, otherwise create new
         EmailVerificationToken verificationToken =
                 emailVerificationTokenRepository.findByUser(user)
                         .orElse(new EmailVerificationToken());
@@ -378,10 +411,9 @@ public class AuthService {
             );
         }
 
-
-
-        String key = "FORGOT_PASSWORD:" + email.toLowerCase();
-
+        // ✅ Rate limit forgot password — max 3 requests per 15 minutes per email
+        // Prevents email spam attacks
+        String key = "FORGOT_PASSWORD:" + email;
         if (!rateLimitService.isAllowed(key, 3, 15)) {
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
@@ -389,21 +421,26 @@ public class AuthService {
             );
         }
 
-
-
-
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "User not found"
                 ));
 
-        String code = generateSixDigitCode();
+        // Generate plain code — this is what we send to the user by email
+        String plainCode = generateSixDigitCode();
 
-        user.setPasswordResetCode(code);
-        user.setPasswordResetExpiresAt(LocalDateTime.now().plusMinutes(10));
+        // ✅ Hash before saving — plain code never touches the database
+        // If DB is compromised, attacker cannot use the stored hash to reset passwords
+        String hashedCode = hashCode(plainCode);
 
-        userRepository.save(user);
+        PasswordResetCode resetCode = new PasswordResetCode();
+        resetCode.setEmail(user.getEmail());
+        resetCode.setCode(hashedCode);
+        resetCode.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        resetCode.setUsed(false);
+
+        passwordResetCodeRepository.save(resetCode);
 
         try {
             emailService.sendEmail(
@@ -420,7 +457,7 @@ public class AuthService {
 
                     Thanks,
                     Gotham Cricket Club
-                    """.formatted(code)
+                    """.formatted(plainCode)
             );
         } catch (Exception e) {
             throw new ResponseStatusException(
@@ -428,8 +465,6 @@ public class AuthService {
                     "Failed to send password reset email. Please try again later."
             );
         }
-
-
 
         return "Password reset code sent to your email.";
     }
@@ -458,8 +493,9 @@ public class AuthService {
             );
         }
 
-        String key = "RESET_CODE_VERIFY:" + email.toLowerCase();
-
+        // ✅ Rate limit reset attempts — max 5 attempts per 15 minutes per email
+        // Prevents brute force guessing of reset codes
+        String key = "RESET_CODE_VERIFY:" + email;
         if (!rateLimitService.isAllowed(key, 5, 15)) {
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
@@ -467,22 +503,26 @@ public class AuthService {
             );
         }
 
-        User user = userRepository.findByEmailIgnoreCase(email)
+        // Verify user exists before doing anything else
+        userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "User not found"
                 ));
 
-        if (user.getPasswordResetCode() == null ||
-                !user.getPasswordResetCode().equals(code)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid reset code"
-            );
-        }
+        // ✅ Hash the submitted code before looking up in DB
+        // Must match the hashed version stored during forgotPassword
+        String hashedCode = hashCode(code);
 
-        if (user.getPasswordResetExpiresAt() == null ||
-                user.getPasswordResetExpiresAt().isBefore(LocalDateTime.now())) {
+        PasswordResetCode resetCode = passwordResetCodeRepository
+                .findTopByEmailAndCodeAndUsedFalseOrderByIdDesc(email, hashedCode)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid reset code"
+                ));
+
+        // Check code has not expired (10 minute window)
+        if (resetCode.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Reset code expired"
@@ -490,25 +530,25 @@ public class AuthService {
         }
 
         // Save new encoded password
+        User user = userRepository.findByEmailIgnoreCase(email).get();
         user.setPassword(passwordEncoder.encode(newPassword));
-
-        // Clear reset fields after successful reset
-        user.setPasswordResetCode(null);
-        user.setPasswordResetExpiresAt(null);
-
         userRepository.save(user);
 
+        // Mark reset code as used so it cannot be reused
+        resetCode.setUsed(true);
+        passwordResetCodeRepository.save(resetCode);
+
+        // ✅ Clear rate limits after successful reset
         rateLimitService.clear("FORGOT_PASSWORD:" + email);
         rateLimitService.clear("RESET_CODE_VERIFY:" + email);
-
 
         return "Password reset successful.";
     }
 
     // =========================
-    // OLD LINK VERIFY METHOD
-    // Keep only if your old link endpoint still exists.
-    // You can remove this later if you fully use 6-digit OTP.
+    // VERIFY EMAIL VIA LINK (legacy)
+    // Keep for backward compatibility with old email link flow.
+    // Can be removed once all users are on 6-digit OTP flow.
     // =========================
     public String verifyEmail(String token) {
 
@@ -534,7 +574,6 @@ public class AuthService {
         }
 
         User user = verificationToken.getUser();
-
         user.setStatus(UserStatus.PENDING);
         verificationToken.setUsed(true);
 
@@ -545,10 +584,25 @@ public class AuthService {
     }
 
     // =========================
-    // GENERATE 6-DIGIT CODE
+    // HELPERS
     // =========================
+
+    // Generate a cryptographically secure 6-digit code
+    // Uses SecureRandom instead of Random for security
     private String generateSixDigitCode() {
         int code = SECURE_RANDOM.nextInt(900000) + 100000;
         return String.valueOf(code);
+    }
+
+    // SHA-256 hash utility for reset codes
+    // One-way hash — cannot be reversed to get original code
+    private String hashCode(String code) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(code.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 }

@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Profile", description = "View and update the authenticated member's profile")
 public class ProfileController {
 

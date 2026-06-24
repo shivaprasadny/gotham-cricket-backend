@@ -11,7 +11,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.Random;
 
 @Service
@@ -22,23 +26,38 @@ public class PasswordResetService {
     private final PasswordResetCodeRepository passwordResetCodeRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // ✅ Hash the code with SHA-256 before storing
+    private String hashCode(String code) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(code.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
+
     public ForgotPasswordResponse requestResetCode(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("No account found with this email"));
 
-        String code = String.format("%06d", new Random().nextInt(999999));
+        // Generate plain code — this is what we send to the user
+        String plainCode = String.format("%06d", new Random().nextInt(999999));
 
         PasswordResetCode resetCode = new PasswordResetCode();
         resetCode.setEmail(user.getEmail());
-        resetCode.setCode(code);
+
+        // ✅ Store hashed version — plain code never touches the DB
+        resetCode.setCode(hashCode(plainCode));
         resetCode.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         resetCode.setUsed(false);
 
         passwordResetCodeRepository.save(resetCode);
 
+        // ✅ Return plain code to send to user via email/SMS
         return new ForgotPasswordResponse(
                 "Reset code generated successfully",
-                code
+                plainCode
         );
     }
 
@@ -46,8 +65,11 @@ public class PasswordResetService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("No account found with this email"));
 
+        // ✅ Hash the code the user submitted before looking it up in DB
+        String hashedCode = hashCode(request.getCode());
+
         PasswordResetCode resetCode = passwordResetCodeRepository
-                .findTopByEmailAndCodeAndUsedFalseOrderByIdDesc(request.getEmail(), request.getCode())
+                .findTopByEmailAndCodeAndUsedFalseOrderByIdDesc(request.getEmail(), hashedCode)
                 .orElseThrow(() -> new RuntimeException("Invalid reset code"));
 
         if (resetCode.getExpiresAt().isBefore(LocalDateTime.now())) {

@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -35,9 +34,11 @@ public class Event {
     @Column(nullable = false)
     private String location;
 
-    // Who created event
-    @Column(name = "created_by", nullable = false)
-    private String createdBy;
+    // ✅ FK to users table — if user email changes, link stays valid
+    // LAZY loading — user is not fetched unless explicitly accessed
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id", nullable = false)
+    private User createdBy;
 
     // Created timestamp
     @Column(name = "created_at", nullable = false)

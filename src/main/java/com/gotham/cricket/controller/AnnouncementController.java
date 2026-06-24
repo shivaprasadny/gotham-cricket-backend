@@ -16,7 +16,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/announcements")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Announcements", description = "Create, view, update, pin, and remove club announcements")
 public class AnnouncementController {
 

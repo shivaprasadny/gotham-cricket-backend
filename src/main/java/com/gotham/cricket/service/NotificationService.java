@@ -207,44 +207,39 @@ public class NotificationService {
     }
 
     // Save Expo push token for logged-in user
-    // Save Expo push token for logged-in user
     public String savePushToken(String email, String token) {
-
-        // Validate token
         if (token == null || token.isBlank()) {
             throw new RuntimeException("Push token is required");
         }
 
-        // Remove old rows using this token
-        List<PushToken> allTokens = pushTokenRepository.findAll();
-
-        for (PushToken row : allTokens) {
-
-            // Same physical device token found
-            if (token.equals(row.getExpoPushToken())) {
-
-                // If same account already has token -> nothing to do
-                if (email.equals(row.getUserEmail())) {
-                    return "Push token already exists";
-                }
-
-                // Different account using same device
-                // Update existing row to latest logged-in user
-                row.setUserEmail(email);
-
-                pushTokenRepository.save(row);
-
-                return "Push token updated successfully";
+        Optional<PushToken> existing = pushTokenRepository.findByExpoPushToken(token);
+        if (existing.isPresent()) {
+            PushToken row = existing.get();
+            if (email.equals(row.getUserEmail())) {
+                return "Push token already exists";
             }
+            // Same device, different account — reassign to current user
+            row.setUserEmail(email);
+            pushTokenRepository.save(row);
+            return "Push token updated successfully";
         }
 
-        // Create completely new token row
+        // Remove any stale token already held by this user before inserting new one
+        pushTokenRepository.findAllByUserEmail(email)
+                .forEach(pushTokenRepository::delete);
+
         PushToken pushToken = new PushToken();
         pushToken.setUserEmail(email);
         pushToken.setExpoPushToken(token);
-
         pushTokenRepository.save(pushToken);
-
         return "Push token saved successfully";
+    }
+
+    // Remove push token on device logout
+    public void removeToken(String email, String token) {
+        if (token == null || token.isBlank()) return;
+        pushTokenRepository.findByExpoPushToken(token)
+                .filter(row -> email.equals(row.getUserEmail()))
+                .ifPresent(pushTokenRepository::delete);
     }
 }

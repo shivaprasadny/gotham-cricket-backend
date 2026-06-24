@@ -16,10 +16,11 @@ public class PushToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ✅ removed unique = true — one user can have multiple devices
     @Column(name = "user_email", nullable = false)
     private String userEmail;
 
-    // Each device token should be unique
+    // expo token itself stays unique — same device never saved twice
     @Column(name = "expo_push_token", nullable = false, unique = true, length = 255)
     private String expoPushToken;
 }

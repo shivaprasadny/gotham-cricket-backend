@@ -32,6 +32,7 @@ import com.gotham.cricket.enums.Role;
 public class ChatRoomProvisioningService {
 
     private static final String CLUB_KEY = "gotham:club";
+    private static final String ANONYMOUS_KEY = "gotham:anonymous";
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
@@ -49,8 +50,26 @@ public class ChatRoomProvisioningService {
         ChatRoom clubRoom = ensureRoom(CLUB_KEY, ChatRoomType.CLUB, null, "Gotham Club Chat");
         addMembers(clubRoom, approvedUsers);
 
+        ensureAnonymousRoom();
         matchRepository.findAll().forEach(this::syncMatchRoomMembership);
         eventRepository.findAll().forEach(this::syncEventRoomMembership);
+    }
+
+    @Transactional
+    public void ensureAnonymousRoom() {
+        ChatRoom room = ensureRoom(ANONYMOUS_KEY, ChatRoomType.ANONYMOUS, null, "Anonymous Club Chat");
+        List<User> approved = approvedUsers();
+
+        Set<Long> adminIds = approved.stream()
+                .filter(u -> u.getRole() == Role.ADMIN)
+                .map(User::getId)
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+
+        Set<Long> allApprovedIds = approved.stream()
+                .map(User::getId)
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+
+        replaceMembers(room, allApprovedIds, adminIds);
     }
 
     @Transactional
@@ -112,6 +131,9 @@ public class ChatRoomProvisioningService {
     public void addApprovedMemberToSharedRooms(User user) {
         requireApproved(user);
         ensureClubMembership(user);
+        // Add to anonymous room if it already exists (created on startup).
+        chatRoomRepository.findByRoomKey(ANONYMOUS_KEY).ifPresent(room ->
+                addMember(room, user.getId(), user.getRole() == Role.ADMIN));
     }
 
     @Transactional
@@ -153,12 +175,29 @@ public class ChatRoomProvisioningService {
     @Transactional
     public void syncEventRoomMembership(Event event) {
         ChatRoom room = ensureEventRoom(event);
+
+        // App ADMINs are room admins
+        Set<Long> roomAdminIds = approvedUsers().stream()
+                .filter(user -> user.getRole() == Role.ADMIN)
+                .map(User::getId)
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+
+        // ✅ Event creator is now a User object — get ID directly, no email lookup needed
+        if (event.getCreatedBy() != null
+                && event.getCreatedBy().getStatus() == UserStatus.APPROVED) {
+            roomAdminIds.add(event.getCreatedBy().getId());
+        }
+
         Set<Long> eligibleUserIds = eventAvailabilityRepository.findByEventId(event.getId()).stream()
                 .filter(availability -> availability.getStatus() == EventStatus.GOING)
                 .map(availability -> availability.getUser().getId())
                 .filter(this::isApprovedUser)
-                .collect(Collectors.toSet());
-        replaceMembers(room, eligibleUserIds, Set.of());
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+
+        // Admins are always eligible even if they haven't RSVP'd
+        eligibleUserIds.addAll(roomAdminIds);
+
+        replaceMembers(room, eligibleUserIds, roomAdminIds);
     }
 
     private ChatRoom ensureRoom(
@@ -182,6 +221,7 @@ public class ChatRoomProvisioningService {
                 .forEach(room -> {
                     String roomKey = switch (room.getType()) {
                         case CLUB -> CLUB_KEY;
+                        case ANONYMOUS -> ANONYMOUS_KEY;
                         case MATCH -> "gotham:match:" + room.getReferenceId();
                         case EVENT -> "gotham:event:" + room.getReferenceId();
                         case GROUP -> "gotham:group:" + room.getId();

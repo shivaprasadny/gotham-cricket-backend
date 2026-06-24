@@ -6,5 +6,6 @@ public enum ChatRoomType {
     MATCH,
     EVENT,
     DIRECT,
-    GROUP
+    GROUP,
+    ANONYMOUS
 }

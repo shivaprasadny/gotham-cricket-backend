@@ -120,11 +120,7 @@ public class User {
 
 
 
-    @Column(name = "password_reset_code")
-    private String passwordResetCode;
 
-    @Column(name = "password_reset_expires_at")
-    private LocalDateTime passwordResetExpiresAt;
     /**
      * Utility method to generate full name
      * Used during create/update

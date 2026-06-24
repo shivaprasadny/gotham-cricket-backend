@@ -16,7 +16,6 @@ import org.springframework.security.core.Authentication;
 @RestController
 @RequestMapping("/api/matches/{matchId}/squad")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Match Squads", description = "Manage selected and playing-XI members for a match")
 public class MatchSquadController {
 

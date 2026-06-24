@@ -24,7 +24,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/teams")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(
         name = "Teams",
         description = "Create and manage teams, team details, and team memberships"

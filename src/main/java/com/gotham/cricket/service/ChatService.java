@@ -64,7 +64,8 @@ public class ChatService {
                 .content(content)
                 .build());
 
-        ChatMessageResponse response = toResponse(saved, sender);
+        boolean anonymous = room.getType() == ChatRoomType.ANONYMOUS;
+        ChatMessageResponse response = toResponse(saved, sender, anonymous);
         eventPublisher.publishEvent(new ChatMessageCreatedEvent(response, room.getName(), sender.getId()));
         return response;
     }
@@ -77,7 +78,7 @@ public class ChatService {
             int size
     ) {
         User user = requireUser(userEmail);
-        requireRoom(roomId);
+        ChatRoom room = requireRoom(roomId);
         ChatRoomMember membership = requireMembership(roomId, user.getId());
 
         int safePage = Math.max(page, 0);
@@ -92,8 +93,9 @@ public class ChatService {
                 );
 
         Map<Long, User> senders = loadSenders(messages.getContent());
+        boolean anonymous = room.getType() == ChatRoomType.ANONYMOUS;
         List<ChatMessageResponse> content = messages.getContent().stream()
-                .map(message -> toResponse(message, senders.get(message.getSenderId())))
+                .map(message -> toResponse(message, senders.get(message.getSenderId()), anonymous))
                 .toList();
 
         return new ChatMessagePageResponse(
@@ -181,8 +183,8 @@ public class ChatService {
 
                 // Convert each membership/room to API response.
                 .map(member -> {
-                    ChatRoom room = member.getChatRoom();
-                    Message latest = latestByRoom.get(room.getId());
+                    ChatRoom chatRoom = member.getChatRoom();
+                    Message latest = latestByRoom.get(chatRoom.getId());
 
                     // Hidden chats should count unread only after hiddenThroughMessageId.
                     // Normal chats count unread after lastReadMessageId.
@@ -192,20 +194,21 @@ public class ChatService {
                     );
 
                     long unreadCount = unreadAfter == null
-                            ? messageRepository.countByChatRoomId(room.getId())
+                            ? messageRepository.countByChatRoomId(chatRoom.getId())
                             : messageRepository.countByChatRoomIdAndIdGreaterThan(
-                            room.getId(),
+                            chatRoom.getId(),
                             unreadAfter
                     );
 
+                    boolean anonymous = chatRoom.getType() == ChatRoomType.ANONYMOUS;
                     return new ChatRoomResponse(
-                            room.getId(),
-                            room.getType(),
-                            room.getReferenceId(),
+                            chatRoom.getId(),
+                            chatRoom.getType(),
+                            chatRoom.getReferenceId(),
 
                             // Direct chats show the other user's name.
                             // Group/match/event/club chats show saved room name.
-                            getDisplayRoomName(room, user),
+                            getDisplayRoomName(chatRoom, user),
 
                             unreadCount,
 
@@ -214,10 +217,12 @@ public class ChatService {
                                     ? null
                                     : toResponse(
                                     latest,
-                                    senders.get(latest.getSenderId())
+                                    senders.get(latest.getSenderId()),
+                                    anonymous
                             ),
 
-                            member.isMuted()
+                            member.isMuted(),
+                            member.isFavorite()
                     );
                 })
                 .toList();
@@ -258,7 +263,8 @@ public class ChatService {
                 getDisplayRoomName(room, currentUser),
                 0,
                 null,
-                membership.isMuted()
+                membership.isMuted(),
+                membership.isFavorite()
         );
     }
 
@@ -283,6 +289,14 @@ public class ChatService {
         User user = requireUser(userEmail);
         ChatRoomMember membership = requireMembership(roomId, user.getId());
         membership.setMuted(muted);
+        chatRoomMemberRepository.save(membership);
+    }
+
+    @Transactional
+    public void setFavorite(Long roomId, boolean favorite, String userEmail) {
+        User user = requireUser(userEmail);
+        ChatRoomMember membership = requireMembership(roomId, user.getId());
+        membership.setFavorite(favorite);
         chatRoomMemberRepository.save(membership);
     }
 
@@ -314,11 +328,15 @@ public class ChatService {
     }
 
     private ChatMessageResponse toResponse(Message message, User sender) {
+        return toResponse(message, sender, false);
+    }
+
+    private ChatMessageResponse toResponse(Message message, User sender, boolean anonymous) {
         return new ChatMessageResponse(
                 message.getId(),
                 message.getChatRoom().getId(),
                 message.getSenderId(),
-                sender == null ? "Unknown Member" : sender.getFullName(),
+                anonymous ? "Anonymous" : (sender == null ? "Unknown Member" : sender.getFullName()),
                 message.getContent(),
                 message.getType(),
                 message.getCreatedAt()
@@ -401,14 +419,19 @@ public class ChatService {
                 room.getName(),
                 0,
                 systemMessageResponse,
-                creatorMembership.isMuted()
+                creatorMembership.isMuted(),
+                creatorMembership.isFavorite()
         );
     }
     @Transactional
     public List<ChatRoomMemberResponse> getRoomMembers(Long roomId, String userEmail) {
         User currentUser = requireUser(userEmail);
         ChatRoom room = requireRoom(roomId);
-        requireMembership(room.getId(), currentUser.getId());
+        ChatRoomMember currentMembership = requireMembership(room.getId(), currentUser.getId());
+        // ANONYMOUS: only room admins (app ADMINs) may view the member list.
+        if (room.getType() == ChatRoomType.ANONYMOUS && !currentMembership.isRoomAdmin()) {
+            throw new AccessDeniedException("Member list is not available in anonymous chat");
+        }
 
         return chatRoomMemberRepository.findByChatRoomId(room.getId())
                 .stream()
@@ -518,9 +541,8 @@ public class ChatService {
         }
 
         if (room.getType() == ChatRoomType.MATCH || room.getType() == ChatRoomType.EVENT) {
-            if (currentUser.getRole() != com.gotham.cricket.enums.Role.ADMIN
-                    && currentUser.getRole() != com.gotham.cricket.enums.Role.CAPTAIN) {
-                throw new AccessDeniedException("Only admins and captains can manage match/event chat members");
+            if (!currentMembership.isRoomAdmin()) {
+                throw new AccessDeniedException("Only room admins can manage match/event chat members");
             }
             return;
         }
@@ -534,8 +556,10 @@ public class ChatService {
         ChatRoom room = requireRoom(roomId);
         ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
 
-        if (room.getType() != ChatRoomType.GROUP) {
-            throw new IllegalArgumentException("Room admin is only for group chats");
+        if (room.getType() != ChatRoomType.GROUP
+                && room.getType() != ChatRoomType.MATCH
+                && room.getType() != ChatRoomType.EVENT) {
+            throw new IllegalArgumentException("Room admin is only supported for group, match, and event chats");
         }
 
         requireCanManageMembers(room, currentUser, currentMembership);
@@ -568,8 +592,10 @@ public class ChatService {
         ChatRoom room = requireRoom(roomId);
         ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
 
-        if (room.getType() != ChatRoomType.GROUP) {
-            throw new IllegalArgumentException("Room admin is only for group chats");
+        if (room.getType() != ChatRoomType.GROUP
+                && room.getType() != ChatRoomType.MATCH
+                && room.getType() != ChatRoomType.EVENT) {
+            throw new IllegalArgumentException("Room admin is only supported for group, match, and event chats");
         }
 
         requireCanManageMembers(room, currentUser, currentMembership);
@@ -652,7 +678,8 @@ public class ChatService {
                 saved.getName(),
                 0,
                 systemMessageResponse,
-                currentMembership.isMuted()
+                currentMembership.isMuted(),
+                currentMembership.isFavorite()
         );
 
 
@@ -664,7 +691,9 @@ public class ChatService {
         ChatRoom room = requireRoom(roomId);
         ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
 
-        if (room.getType() == ChatRoomType.DIRECT || room.getType() == ChatRoomType.CLUB) {
+        if (room.getType() == ChatRoomType.DIRECT
+                || room.getType() == ChatRoomType.CLUB
+                || room.getType() == ChatRoomType.ANONYMOUS) {
             throw new IllegalArgumentException("You cannot leave this chat");
         }
 
@@ -699,5 +728,34 @@ public class ChatService {
         User user = requireUser(userEmail);
         requireMembership(roomId, user.getId());
         presenceService.leaveRoom(roomId, userEmail);
+    }
+
+    // Delete a single message for the current user only
+// Message is hidden for this user but stays visible to others
+    @Transactional
+    public void deleteMessage(Long roomId, Long messageId, String userEmail) {
+        User user = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+
+        // Make sure user is a member of this room
+        requireMembership(roomId, user.getId());
+
+        // Find the message and make sure it belongs to this room
+        Message message = messageRepository.findByIdAndChatRoomId(messageId, roomId)
+                .orElseThrow(() -> new ChatNotFoundException("Message not found in this room"));
+
+        // Only the sender or a room admin can delete a message
+        boolean isSender = message.getSenderId().equals(user.getId());
+        boolean isRoomAdmin = chatRoomMemberRepository
+                .findByChatRoomIdAndUserId(roomId, user.getId())
+                .map(ChatRoomMember::isRoomAdmin)
+                .orElse(false);
+
+        if (!isSender && !isRoomAdmin) {
+            throw new AccessDeniedException("You can only delete your own messages");
+        }
+
+        // Permanently delete the message from DB
+        messageRepository.delete(message);
     }
 }

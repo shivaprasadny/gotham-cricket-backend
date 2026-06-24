@@ -99,6 +99,16 @@ public class ChatRestController {
     ) {
         chatService.setMuted(roomId, request.muted(), authentication.getName());
     }
+
+    @PutMapping("/rooms/{roomId}/favorite")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void setFavorite(
+            @PathVariable Long roomId,
+            @RequestBody ChatFavoriteRequest request,
+            Authentication authentication
+    ) {
+        chatService.setFavorite(roomId, request.favorite(), authentication.getName());
+    }
     @PostMapping("/rooms/groups")
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public ChatRoomResponse createGroupRoom(
@@ -196,5 +206,18 @@ public class ChatRestController {
             Authentication authentication
     ) {
         chatService.leaveRoomPresence(roomId, authentication.getName());
+    }
+
+
+    // DELETE /api/chat/rooms/{roomId}/messages/{messageId}
+// Permanently deletes message — sender or room admin only
+    @DeleteMapping("/rooms/{roomId}/messages/{messageId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void deleteMessage(
+            @PathVariable Long roomId,
+            @PathVariable Long messageId,
+            Authentication authentication
+    ) {
+        chatService.deleteMessage(roomId, messageId, authentication.getName());
     }
 }
