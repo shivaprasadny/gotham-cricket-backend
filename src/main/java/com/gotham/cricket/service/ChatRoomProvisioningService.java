@@ -144,7 +144,6 @@ public class ChatRoomProvisioningService {
                 .orElseGet(() -> chatRoomRepository.save(ChatRoom.builder()
                         .roomKey(roomKey)
                         .type(type)
-                        .clubId(null)
                         .referenceId(referenceId)
                         .name(name)
                         .build()));
@@ -158,6 +157,7 @@ public class ChatRoomProvisioningService {
                         case CLUB -> CLUB_KEY;
                         case MATCH -> "gotham:match:" + room.getReferenceId();
                         case EVENT -> "gotham:event:" + room.getReferenceId();
+                        case GROUP -> "gotham:group:" + room.getId();
                         case DIRECT -> {
                             List<Long> userIds = chatRoomMemberRepository.findByChatRoomId(room.getId()).stream()
                                     .map(ChatRoomMember::getUserId)

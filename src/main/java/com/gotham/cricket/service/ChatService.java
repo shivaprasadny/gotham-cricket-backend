@@ -20,6 +20,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import com.gotham.cricket.enums.ChatRoomType;
+import com.gotham.cricket.dto.CreateGroupChatRequest;
+import com.gotham.cricket.dto.ChatRoomMemberResponse;
+import com.gotham.cricket.dto.AddChatRoomMemberRequest;
+import java.util.UUID;
 
 import java.util.Comparator;
 import java.util.List;
@@ -39,6 +44,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final ChatRoomProvisioningService roomProvisioningService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatPresenceService presenceService;
 
     @Transactional
     public ChatMessageResponse sendMessage(ChatMessageRequest request, String userEmail) {
@@ -99,58 +105,120 @@ public class ChatService {
         );
     }
 
+
+
+
     @Transactional
     public List<ChatRoomResponse> getMyRooms(String userEmail) {
         User user = requireUser(userEmail);
+
+        // Make sure approved users always have the main club chat.
         roomProvisioningService.ensureClubMembership(user);
 
-        List<ChatRoomMember> memberships = chatRoomMemberRepository.findByUserId(user.getId());
+        // Get all chat-room memberships for the logged-in user.
+        List<ChatRoomMember> memberships =
+                chatRoomMemberRepository.findByUserId(user.getId());
+
+        // Load the latest message for each room.
+        // Rooms with no messages yet will not be in this list.
         List<Message> latestMessages = memberships.stream()
                 .map(ChatRoomMember::getChatRoom)
-                .map(room -> messageRepository.findFirstByChatRoomIdOrderByIdDesc(room.getId()).orElse(null))
+                .map(room -> messageRepository
+                        .findFirstByChatRoomIdOrderByIdDesc(room.getId())
+                        .orElse(null))
                 .filter(java.util.Objects::nonNull)
                 .toList();
+
+        // Load sender names for latest-message preview.
         Map<Long, User> senders = loadSenders(latestMessages);
+
+        // Map latest message by room id for faster lookup.
         Map<Long, Message> latestByRoom = latestMessages.stream()
-                .collect(Collectors.toMap(message -> message.getChatRoom().getId(), Function.identity()));
+                .collect(Collectors.toMap(
+                        message -> message.getChatRoom().getId(),
+                        Function.identity()
+                ));
 
         return memberships.stream()
+
+                // If user deleted/hidden a chat, keep it hidden until a newer message arrives.
                 .filter(member -> {
                     if (!member.isHidden()) {
                         return true;
                     }
+
                     Message latest = latestByRoom.get(member.getChatRoom().getId());
+
                     return latest != null
                             && (member.getHiddenThroughMessageId() == null
                             || latest.getId() > member.getHiddenThroughMessageId());
                 })
+
+                // Sort before mapping to response.
+                // If room has latest message, sort by latest message time.
+                // If room has no messages yet, sort by room createdAt.
+                // This makes newly created groups appear near the top.
+                .sorted((first, second) -> {
+                    ChatRoom firstRoom = first.getChatRoom();
+                    ChatRoom secondRoom = second.getChatRoom();
+
+                    Message firstLatest = latestByRoom.get(firstRoom.getId());
+                    Message secondLatest = latestByRoom.get(secondRoom.getId());
+
+                    java.time.LocalDateTime firstTime =
+                            firstLatest != null
+                                    ? firstLatest.getCreatedAt()
+                                    : firstRoom.getCreatedAt();
+
+                    java.time.LocalDateTime secondTime =
+                            secondLatest != null
+                                    ? secondLatest.getCreatedAt()
+                                    : secondRoom.getCreatedAt();
+
+                    return secondTime.compareTo(firstTime);
+                })
+
+                // Convert each membership/room to API response.
                 .map(member -> {
                     ChatRoom room = member.getChatRoom();
                     Message latest = latestByRoom.get(room.getId());
+
+                    // Hidden chats should count unread only after hiddenThroughMessageId.
+                    // Normal chats count unread after lastReadMessageId.
                     Long unreadAfter = greatest(
                             member.getLastReadMessageId(),
                             member.getHiddenThroughMessageId()
                     );
+
                     long unreadCount = unreadAfter == null
                             ? messageRepository.countByChatRoomId(room.getId())
                             : messageRepository.countByChatRoomIdAndIdGreaterThan(
-                                    room.getId(),
-                                    unreadAfter
-                            );
+                            room.getId(),
+                            unreadAfter
+                    );
+
                     return new ChatRoomResponse(
                             room.getId(),
                             room.getType(),
                             room.getReferenceId(),
-                            room.getName(),
+
+                            // Direct chats show the other user's name.
+                            // Group/match/event/club chats show saved room name.
+                            getDisplayRoomName(room, user),
+
                             unreadCount,
-                            latest == null ? null : toResponse(latest, senders.get(latest.getSenderId())),
+
+                            // Latest message preview for chat list.
+                            latest == null
+                                    ? null
+                                    : toResponse(
+                                    latest,
+                                    senders.get(latest.getSenderId())
+                            ),
+
                             member.isMuted()
                     );
                 })
-                .sorted(Comparator.comparing(
-                        room -> room.lastMessage() == null ? null : room.lastMessage().createdAt(),
-                        Comparator.nullsLast(Comparator.reverseOrder())
-                ))
                 .toList();
     }
 
@@ -186,7 +254,7 @@ public class ChatService {
                 room.getId(),
                 room.getType(),
                 room.getReferenceId(),
-                room.getName(),
+                getDisplayRoomName(room, currentUser),
                 0,
                 null,
                 membership.isMuted()
@@ -253,5 +321,336 @@ public class ChatService {
                 message.getContent(),
                 message.getCreatedAt()
         );
+    }
+    // Build room name for the logged-in user
+// DIRECT chat should show only the other person's name
+    private String getDisplayRoomName(ChatRoom room, User currentUser) {
+        if (room.getType() != ChatRoomType.DIRECT) {
+            return room.getName();
+        }
+
+        return chatRoomMemberRepository.findByChatRoomId(room.getId())
+                .stream()
+                .map(ChatRoomMember::getUserId)
+                .filter(userId -> !userId.equals(currentUser.getId()))
+                .findFirst()
+                .flatMap(userRepository::findById)
+                .map(User::getFullName)
+                .orElse(room.getName());
+    }
+    @Transactional
+    public ChatRoomResponse createGroupRoom(CreateGroupChatRequest request, String userEmail) {
+        User creator = requireUser(userEmail);
+
+        String groupName = request.name().trim();
+        if (groupName.isEmpty()) {
+            throw new IllegalArgumentException("Group name is required");
+        }
+
+        ChatRoom room = chatRoomRepository.save(ChatRoom.builder()
+                .roomKey("gotham:group:" + UUID.randomUUID())
+                .type(ChatRoomType.GROUP)
+                .referenceId(null)
+                .name(groupName)
+                .build());
+
+        addMember(room, creator.getId(), true);
+
+        request.memberIds()
+                .stream()
+                .filter(memberId -> !memberId.equals(creator.getId()))
+                .distinct()
+                .forEach(memberId -> {
+                    User member = userRepository.findById(memberId)
+                            .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+                    addMember(room, member.getId(), false);
+                });
+
+        ChatRoomMember creatorMembership = requireMembership(room.getId(), creator.getId());
+
+        return new ChatRoomResponse(
+                room.getId(),
+                room.getType(),
+                room.getReferenceId(),
+                room.getName(),
+                0,
+                null,
+                creatorMembership.isMuted()
+        );
+    }
+    @Transactional
+    public List<ChatRoomMemberResponse> getRoomMembers(Long roomId, String userEmail) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+        requireMembership(room.getId(), currentUser.getId());
+
+        return chatRoomMemberRepository.findByChatRoomId(room.getId())
+                .stream()
+                .map(member -> {
+                    User user = userRepository.findById(member.getUserId())
+                            .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+
+                    return new ChatRoomMemberResponse(
+                            user.getId(),
+                            user.getFullName(),
+                            user.getNickname(),
+                            member.isRoomAdmin()
+                    );
+                })
+                .toList();
+    }
+
+    @Transactional
+    public ChatRoomMemberResponse addRoomMember(
+            Long roomId,
+            AddChatRoomMemberRequest request,
+            String userEmail
+    ) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+
+        ChatRoomMember currentMembership =
+                requireMembership(room.getId(), currentUser.getId());
+
+        requireCanManageMembers(room, currentUser, currentMembership);
+
+        User newMember = userRepository.findById(request.userId())
+                .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+
+        addMember(room, newMember.getId(), false);
+
+        return new ChatRoomMemberResponse(
+                newMember.getId(),
+                newMember.getFullName(),
+                newMember.getNickname(),
+                false
+        );
+    }
+
+    @Transactional
+    public void removeRoomMember(Long roomId, Long userId, String userEmail) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+
+        ChatRoomMember currentMembership =
+                requireMembership(room.getId(), currentUser.getId());
+
+        requireCanManageMembers(room, currentUser, currentMembership);
+
+        if (currentUser.getId().equals(userId)) {
+            throw new IllegalArgumentException("You cannot remove yourself from this chat");
+        }
+
+        ChatRoomMember targetMembership = requireMembership(roomId, userId);
+
+        long adminCount = chatRoomMemberRepository.findByChatRoomId(roomId)
+                .stream()
+                .filter(ChatRoomMember::isRoomAdmin)
+                .count();
+
+        if (targetMembership.isRoomAdmin() && adminCount <= 1) {
+            throw new IllegalArgumentException("Group must have at least one admin");
+        }
+
+        chatRoomMemberRepository.deleteByChatRoomIdAndUserId(roomId, userId);
+    }
+
+    private void addMember(ChatRoom room, Long userId, boolean roomAdmin) {
+        if (!chatRoomMemberRepository.existsByChatRoomIdAndUserId(room.getId(), userId)) {
+            chatRoomMemberRepository.save(ChatRoomMember.builder()
+                    .chatRoom(room)
+                    .userId(userId)
+                    .hidden(false)
+                    .muted(false)
+                    .roomAdmin(roomAdmin)
+                    .build());
+        }
+    }
+
+    private void requireCanManageMembers(
+            ChatRoom room,
+            User currentUser,
+            ChatRoomMember currentMembership
+    ) {
+        if (room.getType() == ChatRoomType.GROUP) {
+            if (!currentMembership.isRoomAdmin()) {
+                throw new AccessDeniedException("Only group admins can manage members");
+            }
+            return;
+        }
+
+        if (room.getType() == ChatRoomType.MATCH || room.getType() == ChatRoomType.EVENT) {
+            if (currentUser.getRole() != com.gotham.cricket.enums.Role.ADMIN
+                    && currentUser.getRole() != com.gotham.cricket.enums.Role.CAPTAIN) {
+                throw new AccessDeniedException("Only admins and captains can manage match/event chat members");
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException("Members can only be managed for group, match, or event chats");
+    }
+
+    @Transactional
+    public ChatRoomMemberResponse makeRoomAdmin(Long roomId, Long userId, String userEmail) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+        ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
+
+        if (room.getType() != ChatRoomType.GROUP) {
+            throw new IllegalArgumentException("Room admin is only for group chats");
+        }
+
+        requireCanManageMembers(room, currentUser, currentMembership);
+
+        ChatRoomMember targetMembership = requireMembership(roomId, userId);
+        targetMembership.setRoomAdmin(true);
+        chatRoomMemberRepository.save(targetMembership);
+
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+
+        return new ChatRoomMemberResponse(
+                targetUser.getId(),
+                targetUser.getFullName(),
+                targetUser.getNickname(),
+                true
+        );
+    }
+
+    @Transactional
+    public ChatRoomMemberResponse removeRoomAdmin(Long roomId, Long userId, String userEmail) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+        ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
+
+        if (room.getType() != ChatRoomType.GROUP) {
+            throw new IllegalArgumentException("Room admin is only for group chats");
+        }
+
+        requireCanManageMembers(room, currentUser, currentMembership);
+
+        long adminCount = chatRoomMemberRepository.findByChatRoomId(roomId)
+                .stream()
+                .filter(ChatRoomMember::isRoomAdmin)
+                .count();
+
+        ChatRoomMember targetMembership = requireMembership(roomId, userId);
+
+        if (targetMembership.isRoomAdmin() && adminCount <= 1) {
+            throw new IllegalArgumentException("Group must have at least one admin");
+        }
+
+        targetMembership.setRoomAdmin(false);
+        chatRoomMemberRepository.save(targetMembership);
+
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ChatNotFoundException("Member not found"));
+
+        return new ChatRoomMemberResponse(
+                targetUser.getId(),
+                targetUser.getFullName(),
+                targetUser.getNickname(),
+                false
+        );
+    }
+
+    @Transactional
+    public ChatRoomResponse renameRoom(Long roomId, String name, String userEmail) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+        ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
+
+        if (room.getType() != ChatRoomType.GROUP) {
+            throw new IllegalArgumentException("Only group chats can be renamed");
+        }
+
+        if (!currentMembership.isRoomAdmin()) {
+            throw new AccessDeniedException("Only group admins can rename this chat");
+        }
+
+        String cleanName = name.trim();
+        if (cleanName.isEmpty()) {
+            throw new IllegalArgumentException("Group name is required");
+        }
+
+        String oldName = room.getName();
+
+        room.setName(cleanName);
+        ChatRoom saved = chatRoomRepository.save(room);
+
+// Create system-style message in the chat
+        Message systemMessage = messageRepository.save(
+                Message.builder()
+                        .chatRoom(saved)
+                        .senderId(currentUser.getId())
+                        .content(currentUser.getFullName()
+                                + " renamed the group from \""
+                                + oldName
+                                + "\" to \""
+                                + cleanName
+                                + "\"")
+                        .build()
+        );
+
+        ChatMessageResponse systemMessageResponse =
+                toResponse(systemMessage, currentUser);
+
+        eventPublisher.publishEvent(
+                new ChatMessageCreatedEvent(
+                        systemMessageResponse,
+                        saved.getName(),
+                        currentUser.getId()
+                )
+        );
+
+        return new ChatRoomResponse(
+                saved.getId(),
+                saved.getType(),
+                saved.getReferenceId(),
+                saved.getName(),
+                0,
+                systemMessageResponse,
+                currentMembership.isMuted()
+        );
+
+
+    }
+
+    @Transactional
+    public void leaveRoom(Long roomId, String userEmail) {
+        User currentUser = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+        ChatRoomMember currentMembership = requireMembership(roomId, currentUser.getId());
+
+        if (room.getType() == ChatRoomType.DIRECT || room.getType() == ChatRoomType.CLUB) {
+            throw new IllegalArgumentException("You cannot leave this chat");
+        }
+
+        if (currentMembership.isRoomAdmin()) {
+            long adminCount = chatRoomMemberRepository.findByChatRoomId(roomId)
+                    .stream()
+                    .filter(ChatRoomMember::isRoomAdmin)
+                    .count();
+
+            if (adminCount <= 1) {
+                throw new IllegalArgumentException("Make another member admin before leaving");
+            }
+        }
+
+        chatRoomMemberRepository.deleteByChatRoomIdAndUserId(roomId, currentUser.getId());
+    }
+
+    @Transactional
+    public void enterRoomPresence(Long roomId, String userEmail) {
+        User user = requireUser(userEmail);
+        requireMembership(roomId, user.getId());
+        presenceService.enterRoom(roomId, userEmail);
+    }
+
+    @Transactional
+    public void leaveRoomPresence(Long roomId, String userEmail) {
+        User user = requireUser(userEmail);
+        requireMembership(roomId, user.getId());
+        presenceService.leaveRoom(roomId, userEmail);
     }
 }

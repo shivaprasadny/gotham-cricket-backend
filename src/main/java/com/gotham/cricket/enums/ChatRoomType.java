@@ -5,5 +5,6 @@ public enum ChatRoomType {
     CLUB,
     MATCH,
     EVENT,
-    DIRECT
+    DIRECT,
+    GROUP
 }

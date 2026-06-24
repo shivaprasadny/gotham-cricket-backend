@@ -43,6 +43,9 @@ public class ChatRoomMember {
 
     private Long hiddenThroughMessageId;
 
+    @Column(name = "room_admin", nullable = false)
+    private boolean roomAdmin;
+
     @PrePersist
     void prePersist() {
         if (joinedAt == null) {

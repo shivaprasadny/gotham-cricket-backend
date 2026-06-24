@@ -29,8 +29,7 @@ public class ChatRoom {
     @Column(nullable = false)
     private ChatRoomType type;
 
-    @Column(name = "club_id")
-    private Long clubId;
+
 
     private Long referenceId;
 

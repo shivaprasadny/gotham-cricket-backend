@@ -28,7 +28,10 @@ public class ChatWebSocketController {
         messagingTemplate.convertAndSend(
                 "/topic/chat/room/" + request.roomId(),
                 response
+
         );
+
+        messagingTemplate.convertAndSend("/topic/chat/rooms", response);
     }
 
     @MessageExceptionHandler
