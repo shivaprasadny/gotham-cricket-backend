@@ -4,6 +4,7 @@ import com.gotham.cricket.dto.NotificationResponse;
 import com.gotham.cricket.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -12,7 +13,7 @@ import com.gotham.cricket.dto.PushTokenRequest;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping({"/api/notifications", "/api/v1/notifications"})
 @RequiredArgsConstructor
 @Tag(name = "Notifications", description = "Read, clear, and configure push notifications")
 public class NotificationController {
@@ -54,7 +55,7 @@ public class NotificationController {
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
     @Operation(summary = "Save push token", description = "Saves or updates the authenticated user's Expo push token.")
     public String savePushToken(
-            @RequestBody PushTokenRequest request,
+            @Valid @RequestBody PushTokenRequest request,
             Authentication authentication
     ) {
         return notificationService.savePushToken(authentication.getName(), request.getToken());
@@ -64,7 +65,7 @@ public class NotificationController {
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN','PLAYER')")
     @Operation(summary = "Remove push token", description = "Removes the device push token on logout so the user no longer receives notifications on this device.")
     public String removePushToken(
-            @RequestBody PushTokenRequest request,
+            @Valid @RequestBody PushTokenRequest request,
             Authentication authentication
     ) {
         notificationService.removeToken(authentication.getName(), request.getToken());

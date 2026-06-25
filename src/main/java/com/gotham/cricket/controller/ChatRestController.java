@@ -1,9 +1,14 @@
 package com.gotham.cricket.controller;
 
 import com.gotham.cricket.dto.*;
+import com.gotham.cricket.entity.AnonymousReport;
+import com.gotham.cricket.entity.User;
+import com.gotham.cricket.repository.AnonymousReportRepository;
+import com.gotham.cricket.repository.UserRepository;
 import com.gotham.cricket.service.ChatService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -11,12 +16,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping({"/api/chat", "/api/v1/chat"})
 @RequiredArgsConstructor
 public class ChatRestController {
 
     private final ChatService chatService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final AnonymousReportRepository anonymousReportRepository;
+    private final UserRepository userRepository;
 
     @GetMapping("/rooms")
     public List<ChatRoomResponse> getMyRooms(
@@ -50,7 +57,7 @@ public class ChatRestController {
             Authentication authentication
     ) {
         ChatMessageResponse response = chatService.sendMessage(
-                new ChatMessageRequest(roomId, request.content()),
+                new ChatMessageRequest(roomId, request.content(), request.replyToMessageId()),
                 authentication.getName()
         );
         messagingTemplate.convertAndSend("/topic/chat/room/" + roomId, response);
@@ -209,8 +216,6 @@ public class ChatRestController {
     }
 
 
-    // DELETE /api/chat/rooms/{roomId}/messages/{messageId}
-// Permanently deletes message — sender or room admin only
     @DeleteMapping("/rooms/{roomId}/messages/{messageId}")
     @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     public void deleteMessage(
@@ -219,5 +224,76 @@ public class ChatRestController {
             Authentication authentication
     ) {
         chatService.deleteMessage(roomId, messageId, authentication.getName());
+    }
+
+    // Toggle a reaction on a message (add if absent, remove if already present).
+    // Broadcasts the updated message to the room WebSocket topic.
+    @PostMapping("/rooms/{roomId}/messages/{messageId}/reactions")
+    public ChatMessageResponse toggleReaction(
+            @PathVariable Long roomId,
+            @PathVariable Long messageId,
+            @RequestBody java.util.Map<String, String> body,
+            Authentication authentication
+    ) {
+        String emoji = body.get("emoji");
+        if (emoji == null || emoji.isBlank()) {
+            throw new IllegalArgumentException("emoji is required");
+        }
+        ChatMessageResponse updated = chatService.toggleReaction(
+                roomId, messageId, emoji.trim(), authentication.getName()
+        );
+        messagingTemplate.convertAndSend("/topic/chat/room/" + roomId, updated);
+        return updated;
+    }
+
+    // Freeze or unfreeze an anonymous chat room. Club ADMIN only.
+    // Broadcasts a sentinel SYSTEM message so all connected clients update instantly.
+    @PutMapping("/rooms/{roomId}/frozen")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void setFrozen(
+            @PathVariable Long roomId,
+            @RequestBody java.util.Map<String, Boolean> body,
+            Authentication authentication
+    ) {
+        boolean frozen = Boolean.TRUE.equals(body.get("frozen"));
+        chatService.freezeRoom(roomId, frozen, authentication.getName());
+
+        // Sentinel broadcast so live clients update without polling
+        ChatMessageResponse sentinel = new ChatMessageResponse(
+                -1L, roomId, null, "System",
+                frozen ? "__ROOM_FROZEN__" : "__ROOM_UNFROZEN__",
+                com.gotham.cricket.enums.ChatMessageType.SYSTEM,
+                java.time.LocalDateTime.now(),
+                java.util.List.of(),
+                null, null, null
+        );
+        messagingTemplate.convertAndSend("/topic/chat/room/" + roomId, sentinel);
+    }
+
+    // Report an anonymous message for admin review.
+    // Reporter identity is stored internally — never exposed publicly.
+    @PostMapping("/rooms/{roomId}/messages/{messageId}/report")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reportMessage(
+            @PathVariable Long roomId,
+            @PathVariable Long messageId,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            Authentication authentication
+    ) {
+        User reporter = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Prevent duplicate reports from the same user
+        if (anonymousReportRepository.existsByMessageIdAndReporterId(messageId, reporter.getId())) {
+            return;
+        }
+
+        AnonymousReport report = AnonymousReport.builder()
+                .messageId(messageId)
+                .roomId(roomId)
+                .reporterId(reporter.getId())
+                .reason(body != null ? body.get("reason") : null)
+                .build();
+        anonymousReportRepository.save(report);
     }
 }

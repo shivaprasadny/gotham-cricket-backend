@@ -5,6 +5,7 @@ import com.gotham.cricket.dto.LeagueResponse;
 import com.gotham.cricket.service.LeagueService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/leagues")
+@RequestMapping({"/api/leagues", "/api/v1/leagues"})
 @RequiredArgsConstructor
 @Tag(name = "Leagues", description = "Create and manage cricket leagues")
 public class LeagueController {
@@ -23,7 +24,7 @@ public class LeagueController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     @Operation(summary = "Create a league", description = "Creates a league. Requires ADMIN or CAPTAIN.")
-    public String createLeague(@RequestBody CreateLeagueRequest request) {
+    public String createLeague(@Valid @RequestBody CreateLeagueRequest request) {
         return leagueService.createLeague(request);
     }
 
@@ -47,7 +48,7 @@ public class LeagueController {
     @Operation(summary = "Update a league", description = "Updates a league. Requires ADMIN or CAPTAIN.")
     public String updateLeague(
             @PathVariable Long id,
-            @RequestBody CreateLeagueRequest request
+            @Valid @RequestBody CreateLeagueRequest request
     ) {
         return leagueService.updateLeague(id, request);
     }

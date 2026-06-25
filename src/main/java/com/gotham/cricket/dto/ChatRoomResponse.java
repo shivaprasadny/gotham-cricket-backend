@@ -10,5 +10,6 @@ public record ChatRoomResponse(
         long unreadCount,
         ChatMessageResponse lastMessage,
         boolean muted,
-        boolean favorite
+        boolean favorite,
+        boolean frozen
 ) {}

@@ -21,16 +21,26 @@ public class ProfileResponse {
 
     private Long profileId;
     private String nickname;
+
+    // Contact
+    private String countryCode;
     private String phone;
+
+    // Cricket
     private String battingStyle;
     private String bowlingStyle;
     private String playerType;
     private Integer jerseyNumber;
 
-    // New fields
+    // Extended user fields
     private String firstName;
     private String lastName;
     private String gender;
     private LocalDate dateOfBirth;
     private LocalDate joinedClubDate;
+
+    // Contact privacy settings (own profile always sees them)
+    private boolean showEmail;
+    private boolean showPhone;
+    private boolean showWhatsApp;
 }

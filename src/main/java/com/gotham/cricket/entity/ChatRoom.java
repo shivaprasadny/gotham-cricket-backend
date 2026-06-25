@@ -36,6 +36,9 @@ public class ChatRoom {
     @Column(nullable = false, length = 160)
     private String name;
 
+    @Column(nullable = false)
+    private boolean frozen = false;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

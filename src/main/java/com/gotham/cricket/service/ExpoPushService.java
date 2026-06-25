@@ -3,6 +3,8 @@ package com.gotham.cricket.service;
 import com.gotham.cricket.entity.PushToken;
 import com.gotham.cricket.repository.PushTokenRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -14,6 +16,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class ExpoPushService {
+
+    private static final Logger log = LoggerFactory.getLogger(ExpoPushService.class);
 
     private static final String EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -67,12 +71,12 @@ public class ExpoPushService {
                 pushTokenRepository.findByExpoPushToken(expoPushToken)
                         .ifPresent(pt -> {
                             pushTokenRepository.delete(pt);
-                            System.err.println("Expo push: removed stale token (DeviceNotRegistered)");
+                            log.warn("Expo push: removed stale token (DeviceNotRegistered)");
                         });
             }
 
         } catch (Exception e) {
-            System.err.println("Expo push failed: " + e.getMessage());
+            log.error("Expo push failed", e);
         }
     }
 }

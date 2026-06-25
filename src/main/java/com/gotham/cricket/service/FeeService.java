@@ -509,20 +509,19 @@ public class FeeService {
 
         feeAssignmentRepository.saveAll(assignments);
 
-// Build assigned user id list
-        List<Long> assignedUserIds = assignments.stream()
-                .map(assignment -> assignment.getUser().getId())
-                .toList();
+
 
 // Notify only squad players who got charged
-        notificationService.createForUserIds(
-                assignedUserIds,
-                "New Match Fee Assigned",
-                feeDefinition.getTitle() + " - $" + feeDefinition.getAmount(),
-                "FEE",
-                "MyFees",
-                null
-        );
+        for (FeeAssignment assignment : assignments) {
+            notificationService.createForUserIds(
+                    List.of(assignment.getUser().getId()),
+                    "New Match Fee Assigned",
+                    feeDefinition.getTitle() + " - $" + assignment.getAmount(),
+                    "FEE",
+                    "MyFees",
+                    assignment.getId()
+            );
+        }
 
         return "Match fee assigned to "
                 + squadRows.size()

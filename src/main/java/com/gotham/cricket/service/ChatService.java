@@ -1,18 +1,18 @@
 package com.gotham.cricket.service;
 
-import com.gotham.cricket.dto.ChatMessagePageResponse;
-import com.gotham.cricket.dto.ChatMessageRequest;
-import com.gotham.cricket.dto.ChatMessageResponse;
-import com.gotham.cricket.dto.ChatRoomResponse;
+import com.gotham.cricket.dto.*;
 import com.gotham.cricket.entity.ChatRoom;
 import com.gotham.cricket.entity.ChatRoomMember;
 import com.gotham.cricket.entity.Message;
+import com.gotham.cricket.entity.MessageReaction;
 import com.gotham.cricket.entity.User;
 import com.gotham.cricket.exception.ChatNotFoundException;
 import com.gotham.cricket.repository.ChatRoomMemberRepository;
 import com.gotham.cricket.repository.ChatRoomRepository;
+import com.gotham.cricket.repository.MessageReactionRepository;
 import com.gotham.cricket.repository.MessageRepository;
 import com.gotham.cricket.repository.UserRepository;
+import com.gotham.cricket.enums.Role;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,6 +42,7 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final MessageRepository messageRepository;
+    private final MessageReactionRepository reactionRepository;
     private final UserRepository userRepository;
     private final ChatRoomProvisioningService roomProvisioningService;
     private final ApplicationEventPublisher eventPublisher;
@@ -53,18 +54,48 @@ public class ChatService {
         ChatRoom room = requireRoom(request.roomId());
         requireMembership(room.getId(), sender.getId());
 
+        if (room.isFrozen() && sender.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("This chat has been frozen by admin");
+        }
+
         String content = request.content().trim();
         if (content.isEmpty()) {
             throw new IllegalArgumentException("Message content is required");
+        }
+
+        boolean anonymous = room.getType() == ChatRoomType.ANONYMOUS;
+
+        // Resolve reply fields — look up the original message if this is a reply.
+        Long replyToMessageId = request.replyToMessageId();
+        String replyPreview = null;
+        String replySenderName = null;
+        if (replyToMessageId != null) {
+            messageRepository.findById(replyToMessageId).ifPresent(original -> {
+                // intentional: no-op; we use a local variable pattern below
+            });
+            Message original = messageRepository.findById(replyToMessageId).orElse(null);
+            if (original != null) {
+                // Truncate preview to 200 characters
+                String full = original.getContent();
+                replyPreview = full.length() > 200 ? full.substring(0, 200) + "…" : full;
+                if (anonymous) {
+                    replySenderName = "Anonymous";
+                } else {
+                    User originalSender = userRepository.findById(original.getSenderId()).orElse(null);
+                    replySenderName = originalSender != null ? originalSender.getFullName() : "Unknown Member";
+                }
+            }
         }
 
         Message saved = messageRepository.save(Message.builder()
                 .chatRoom(room)
                 .senderId(sender.getId())
                 .content(content)
+                .replyToMessageId(replyToMessageId)
+                .replyPreview(replyPreview)
+                .replySenderName(replySenderName)
                 .build());
 
-        boolean anonymous = room.getType() == ChatRoomType.ANONYMOUS;
         ChatMessageResponse response = toResponse(saved, sender, anonymous);
         eventPublisher.publishEvent(new ChatMessageCreatedEvent(response, room.getName(), sender.getId()));
         return response;
@@ -205,24 +236,14 @@ public class ChatService {
                             chatRoom.getId(),
                             chatRoom.getType(),
                             chatRoom.getReferenceId(),
-
-                            // Direct chats show the other user's name.
-                            // Group/match/event/club chats show saved room name.
                             getDisplayRoomName(chatRoom, user),
-
                             unreadCount,
-
-                            // Latest message preview for chat list.
                             latest == null
                                     ? null
-                                    : toResponse(
-                                    latest,
-                                    senders.get(latest.getSenderId()),
-                                    anonymous
-                            ),
-
+                                    : toResponse(latest, senders.get(latest.getSenderId()), anonymous),
                             member.isMuted(),
-                            member.isFavorite()
+                            member.isFavorite(),
+                            chatRoom.isFrozen()
                     );
                 })
                 .toList();
@@ -264,7 +285,8 @@ public class ChatService {
                 0,
                 null,
                 membership.isMuted(),
-                membership.isFavorite()
+                membership.isFavorite(),
+                room.isFrozen()
         );
     }
 
@@ -332,15 +354,44 @@ public class ChatService {
     }
 
     private ChatMessageResponse toResponse(Message message, User sender, boolean anonymous) {
+        List<MessageReaction> raw = reactionRepository.findByMessageId(message.getId());
+        List<ReactionSummary> reactions = buildReactionSummaries(raw, anonymous);
         return new ChatMessageResponse(
                 message.getId(),
                 message.getChatRoom().getId(),
-                message.getSenderId(),
+                // Never expose real sender identity in anonymous rooms.
+                anonymous ? null : message.getSenderId(),
                 anonymous ? "Anonymous" : (sender == null ? "Unknown Member" : sender.getFullName()),
                 message.getContent(),
                 message.getType(),
-                message.getCreatedAt()
+                message.getCreatedAt(),
+                reactions,
+                message.getReplyToMessageId(),
+                message.getReplyPreview(),
+                message.getReplySenderName()
         );
+    }
+
+    private List<ReactionSummary> buildReactionSummaries(List<MessageReaction> raw, boolean anonymous) {
+        Map<String, List<MessageReaction>> byEmoji = raw.stream()
+                .collect(Collectors.groupingBy(MessageReaction::getEmoji));
+
+        List<Long> allUserIds = raw.stream().map(MessageReaction::getUserId).distinct().toList();
+        Map<Long, User> reactorMap = userRepository.findAllById(allUserIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        return byEmoji.entrySet().stream()
+                .map(entry -> {
+                    List<String> names = anonymous ? null :
+                            entry.getValue().stream()
+                                    .map(r -> {
+                                        User u = reactorMap.get(r.getUserId());
+                                        return u != null ? u.getFullName() : "Unknown";
+                                    })
+                                    .toList();
+                    return new ReactionSummary(entry.getKey(), entry.getValue().size(), names);
+                })
+                .toList();
     }
 
     private ChatMessageResponse createSystemMessage(
@@ -420,7 +471,8 @@ public class ChatService {
                 0,
                 systemMessageResponse,
                 creatorMembership.isMuted(),
-                creatorMembership.isFavorite()
+                creatorMembership.isFavorite(),
+                room.isFrozen()
         );
     }
     @Transactional
@@ -679,7 +731,8 @@ public class ChatService {
                 0,
                 systemMessageResponse,
                 currentMembership.isMuted(),
-                currentMembership.isFavorite()
+                currentMembership.isFavorite(),
+                saved.isFrozen()
         );
 
 
@@ -757,5 +810,47 @@ public class ChatService {
 
         // Permanently delete the message from DB
         messageRepository.delete(message);
+        reactionRepository.deleteByMessageId(messageId);
+    }
+
+    @Transactional
+    public ChatMessageResponse toggleReaction(Long roomId, Long messageId, String emoji, String userEmail) {
+        User user = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+        requireMembership(roomId, user.getId());
+
+        Message message = messageRepository.findByIdAndChatRoomId(messageId, roomId)
+                .orElseThrow(() -> new ChatNotFoundException("Message not found in this room"));
+
+        reactionRepository.findByMessageIdAndUserIdAndEmoji(messageId, user.getId(), emoji)
+                .ifPresentOrElse(
+                        reactionRepository::delete,
+                        () -> reactionRepository.save(MessageReaction.builder()
+                                .messageId(messageId)
+                                .userId(user.getId())
+                                .emoji(emoji)
+                                .build())
+                );
+
+        boolean anonymous = room.getType() == ChatRoomType.ANONYMOUS;
+        User sender = userRepository.findById(message.getSenderId()).orElse(null);
+        return toResponse(message, sender, anonymous);
+    }
+
+    @Transactional
+    public void freezeRoom(Long roomId, boolean frozen, String userEmail) {
+        User user = requireUser(userEmail);
+        ChatRoom room = requireRoom(roomId);
+
+        if (room.getType() != ChatRoomType.ANONYMOUS) {
+            throw new IllegalArgumentException("Only anonymous chats can be frozen");
+        }
+        if (user.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only club admins can freeze or unfreeze chats");
+        }
+
+        requireMembership(roomId, user.getId());
+        room.setFrozen(frozen);
+        chatRoomRepository.save(room);
     }
 }

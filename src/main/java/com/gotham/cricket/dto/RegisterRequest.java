@@ -2,6 +2,7 @@ package com.gotham.cricket.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -13,37 +14,34 @@ public class RegisterRequest {
     // BASIC USER INFO
     // =========================
 
-    // First name is required
     @NotBlank(message = "First name is required")
     private String firstName;
 
-    // Last name is required
     @NotBlank(message = "Last name is required")
     private String lastName;
 
-    // Valid email is required for login
     @Email(message = "Invalid email format")
     @NotBlank(message = "Email is required")
     private String email;
 
-    // Password is required
     @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
     // =========================
     // OPTIONAL PROFILE INFO
     // =========================
 
-    // Nickname shown in app if user wants
     private String nickname;
 
-    // Phone number
+    // Country code (e.g. "+1"). Required only when phone is provided.
+    private String countryCode;
+
+    // Phone digits only, no country-code prefix.
     private String phone;
 
-    // Date of birth
     private LocalDate dateOfBirth;
 
-    // Gender (store as simple string for now)
     private String gender;
 
     // Cricket profile fields

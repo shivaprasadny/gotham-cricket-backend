@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/members")
+@RequestMapping({"/api/members", "/api/v1/members"})
 @RequiredArgsConstructor
 @Tag(name = "Members", description = "View approved club members and member profiles")
 public class MemberController {

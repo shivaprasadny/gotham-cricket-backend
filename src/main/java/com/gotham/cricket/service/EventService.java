@@ -118,6 +118,11 @@ public class EventService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
+        // Reject RSVP updates for events that have already passed.
+        if (event.getEventDate() != null && event.getEventDate().isBefore(java.time.LocalDateTime.now())) {
+            throw new IllegalStateException("Availability is closed because this event has already passed");
+        }
+
         // Reuse existing record if user already responded, otherwise create new
         EventAvailability availability = eventAvailabilityRepository
                 .findByEventIdAndUserId(eventId, user.getId())

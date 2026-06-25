@@ -9,19 +9,13 @@ import com.gotham.cricket.enums.ChatRoomType;
 import com.gotham.cricket.enums.EventStatus;
 import com.gotham.cricket.enums.UserStatus;
 import com.gotham.cricket.exception.ChatNotFoundException;
-import com.gotham.cricket.repository.ChatRoomMemberRepository;
-import com.gotham.cricket.repository.ChatRoomRepository;
-import com.gotham.cricket.repository.EventRepository;
-import com.gotham.cricket.repository.EventAvailabilityRepository;
-import com.gotham.cricket.repository.MatchRepository;
-import com.gotham.cricket.repository.MatchSquadRepository;
-import com.gotham.cricket.repository.UserRepository;
+import com.gotham.cricket.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
-
+import com.gotham.cricket.entity.SystemMigration;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,7 +27,7 @@ public class ChatRoomProvisioningService {
 
     private static final String CLUB_KEY = "gotham:club";
     private static final String ANONYMOUS_KEY = "gotham:anonymous";
-
+    private static final String CHAT_ROOM_PROVISIONING_V1 = "CHAT_ROOM_PROVISIONING_V1";
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
@@ -41,18 +35,28 @@ public class ChatRoomProvisioningService {
     private final EventRepository eventRepository;
     private final MatchSquadRepository matchSquadRepository;
     private final EventAvailabilityRepository eventAvailabilityRepository;
+    private final SystemMigrationRepository systemMigrationRepository;
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void provisionExistingRooms() {
+        if (systemMigrationRepository.existsByMigrationKey(CHAT_ROOM_PROVISIONING_V1)) {
+            return;
+        }
+
         backfillRoomKeys();
+
         List<User> approvedUsers = approvedUsers();
+
         ChatRoom clubRoom = ensureRoom(CLUB_KEY, ChatRoomType.CLUB, null, "Gotham Club Chat");
         addMembers(clubRoom, approvedUsers);
 
         ensureAnonymousRoom();
+
         matchRepository.findAll().forEach(this::syncMatchRoomMembership);
         eventRepository.findAll().forEach(this::syncEventRoomMembership);
+
+        systemMigrationRepository.save(new SystemMigration(CHAT_ROOM_PROVISIONING_V1));
     }
 
     @Transactional

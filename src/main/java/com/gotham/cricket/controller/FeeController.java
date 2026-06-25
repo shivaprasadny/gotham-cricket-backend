@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/fees")
+@RequestMapping({"/api/fees", "/api/v1/fees"})
 @RequiredArgsConstructor
 @Tag(name = "Fees", description = "Create, assign, collect, waive, split, and report member fees")
 public class FeeController {

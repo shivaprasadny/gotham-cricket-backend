@@ -9,5 +9,8 @@ public record ChatMessageRequest(
 
         @NotBlank
         @Size(max = 2000)
-        String content
+        String content,
+
+        // null means this is a top-level message (not a reply).
+        Long replyToMessageId
 ) {}

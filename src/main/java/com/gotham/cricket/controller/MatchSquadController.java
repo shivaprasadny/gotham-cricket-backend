@@ -14,7 +14,7 @@ import java.util.List;
 import org.springframework.security.core.Authentication;
 
 @RestController
-@RequestMapping("/api/matches/{matchId}/squad")
+@RequestMapping({"/api/matches/{matchId}/squad", "/api/v1/matches/{matchId}/squad"})
 @RequiredArgsConstructor
 @Tag(name = "Match Squads", description = "Manage selected and playing-XI members for a match")
 public class MatchSquadController {

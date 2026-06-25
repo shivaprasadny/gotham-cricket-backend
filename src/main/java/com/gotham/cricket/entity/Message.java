@@ -42,6 +42,19 @@ public class Message {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // Reply support — all nullable; null means this is a top-level message.
+    @Column(name = "reply_to_message_id")
+    private Long replyToMessageId;
+
+    // Short excerpt of the original message shown in the reply bubble (max 200 chars).
+    @Column(name = "reply_preview", length = 200)
+    private String replyPreview;
+
+    // Display name of the author being replied to. Stored at send time so it
+    // survives user-name changes.  For anonymous rooms this is always "Anonymous".
+    @Column(name = "reply_sender_name", length = 100)
+    private String replySenderName;
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) {

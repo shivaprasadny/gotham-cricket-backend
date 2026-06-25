@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/teams")
+@RequestMapping({"/api/teams", "/api/v1/teams"})
 @RequiredArgsConstructor
 @Tag(
         name = "Teams",

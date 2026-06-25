@@ -9,6 +9,8 @@ import com.gotham.cricket.repository.FeeAssignmentRepository;
 import com.gotham.cricket.repository.MatchRepository;
 import com.gotham.cricket.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ReminderService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReminderService.class);
 
     private final NotificationService notificationService;
     private final MatchRepository matchRepository;
@@ -98,8 +102,8 @@ public class ReminderService {
         List<FeeAssignment> pendingAssignments =
                 feeAssignmentRepository.findByStatusIn(pendingStatuses);
 
-        System.out.println("RUNNING PAYMENT REMINDERS");
-        System.out.println("PENDING ASSIGNMENTS COUNT: " + pendingAssignments.size());
+        log.info("Running payment reminders");
+        log.info("Pending assignments count: {}", pendingAssignments.size());
 
         // Group pending fees by user ID instead of User object
         Map<Long, List<FeeAssignment>> pendingByUser =

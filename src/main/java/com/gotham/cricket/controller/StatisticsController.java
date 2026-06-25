@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/statistics")
+@RequestMapping({"/api/statistics", "/api/v1/statistics"})
 @RequiredArgsConstructor
 @Tag(name = "Statistics", description = "Published-only player, team, league, and leaderboard statistics")
 public class StatisticsController {

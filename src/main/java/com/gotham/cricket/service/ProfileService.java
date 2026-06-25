@@ -24,8 +24,28 @@ public class ProfileService {
                 .orElseGet(() -> {
                     MemberProfile newProfile = new MemberProfile();
                     newProfile.setUser(user);
+                    // Explicitly set defaults so they are stored correctly in DB.
+                    newProfile.setShowEmail(true);
+                    newProfile.setShowPhone(true);
+                    newProfile.setShowWhatsApp(true);
                     return memberProfileRepository.save(newProfile);
                 });
+
+        // If ALL three flags are false the row was created before the privacy feature
+        // existed. Migrate it to explicit true so future reads are correct.
+        if (Boolean.FALSE.equals(profile.getShowEmail())
+                && Boolean.FALSE.equals(profile.getShowPhone())
+                && Boolean.FALSE.equals(profile.getShowWhatsApp())) {
+            profile.setShowEmail(true);
+            profile.setShowPhone(true);
+            profile.setShowWhatsApp(true);
+            memberProfileRepository.save(profile);
+        }
+
+        boolean showEmail    = !Boolean.FALSE.equals(profile.getShowEmail());
+        boolean showPhone    = !Boolean.FALSE.equals(profile.getShowPhone());
+        boolean showWhatsApp = !Boolean.FALSE.equals(profile.getShowWhatsApp());
+
         return new ProfileResponse(
                 user.getId(),
                 user.getFullName(),
@@ -34,6 +54,7 @@ public class ProfileService {
                 user.getStatus(),
                 profile.getId(),
                 profile.getNickname(),
+                profile.getCountryCode(),
                 profile.getPhone(),
                 profile.getBattingStyle(),
                 profile.getBowlingStyle(),
@@ -43,7 +64,10 @@ public class ProfileService {
                 user.getLastName(),
                 user.getGender(),
                 user.getDateOfBirth(),
-                user.getJoinedClubDate()
+                user.getJoinedClubDate(),
+                showEmail,
+                showPhone,
+                showWhatsApp
         );
     }
 
@@ -57,34 +81,30 @@ public class ProfileService {
                     newProfile.setUser(user);
                     return memberProfileRepository.save(newProfile);
                 });
-        // Update member profile fields
+
+        // Member profile fields
         profile.setNickname(request.getNickname());
+        profile.setCountryCode(request.getCountryCode());
         profile.setPhone(request.getPhone());
         profile.setBattingStyle(request.getBattingStyle());
         profile.setBowlingStyle(request.getBowlingStyle());
         profile.setPlayerType(request.getPlayerType());
         profile.setJerseyNumber(request.getJerseyNumber());
 
-        // Update user table fields
-        if (request.getFirstName() != null) {
-            user.setFirstName(request.getFirstName());
-        }
+        // Privacy toggles (null = keep existing value)
+        if (request.getShowEmail() != null) profile.setShowEmail(request.getShowEmail());
+        if (request.getShowPhone() != null) profile.setShowPhone(request.getShowPhone());
+        if (request.getShowWhatsApp() != null) profile.setShowWhatsApp(request.getShowWhatsApp());
 
-        if (request.getLastName() != null) {
-            user.setLastName(request.getLastName());
-        }
-
+        // User table fields
+        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null)  user.setLastName(request.getLastName());
         user.setFullName((user.getFirstName() + " " + user.getLastName()).trim());
-
-        if (request.getGender() != null) {
-            user.setGender(request.getGender());
-        }
-
+        if (request.getGender() != null) user.setGender(request.getGender());
         if (request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank()) {
             user.setDateOfBirth(java.time.LocalDate.parse(request.getDateOfBirth()));
         }
 
-        // Save both entities
         userRepository.save(user);
         memberProfileRepository.save(profile);
 

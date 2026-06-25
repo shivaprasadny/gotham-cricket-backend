@@ -1,6 +1,8 @@
 package com.gotham.cricket.service;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -8,6 +10,8 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
 
@@ -22,10 +26,9 @@ public class EmailService {
 
             mailSender.send(mailMessage);
 
-            System.out.println("✅ EMAIL SENT TO: " + to);
+            log.info("Email sent to: {}", to);
         } catch (Exception e) {
-            System.out.println("❌ EMAIL SEND FAILED");
-            e.printStackTrace();
+            log.error("Email send failed", e);
             throw e;
         }
     }

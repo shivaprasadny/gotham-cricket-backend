@@ -5,12 +5,13 @@ import com.gotham.cricket.dto.ProfileUpdateRequest;
 import com.gotham.cricket.service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/profile")
+@RequestMapping({"/api/profile", "/api/v1/profile"})
 @RequiredArgsConstructor
 @Tag(name = "Profile", description = "View and update the authenticated member's profile")
 public class ProfileController {
@@ -27,7 +28,7 @@ public class ProfileController {
     @PutMapping("/me")
     @Operation(summary = "Update my profile", description = "Updates profile details for the authenticated user.")
     public String updateMyProfile(Authentication authentication,
-                                  @RequestBody ProfileUpdateRequest request) {
+                                  @Valid @RequestBody ProfileUpdateRequest request) {
         String email = authentication.getName();
         return profileService.updateMyProfile(email, request);
     }

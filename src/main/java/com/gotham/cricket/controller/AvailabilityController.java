@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/availability")
+@RequestMapping({"/api/availability", "/api/v1/availability"})
 @RequiredArgsConstructor
 @Tag(name = "Match Availability", description = "Submit and review player availability for matches")
 public class AvailabilityController {

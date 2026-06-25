@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/api/auth", "/api/v1/auth"})
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Registration, login, email verification, and password recovery")
 @SecurityRequirements
@@ -26,7 +26,7 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Log in", description = "Authenticates a user and returns login details including the JWT.")
-    public LoginResponse login(@RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 
@@ -38,26 +38,26 @@ public class AuthController {
 
     @PostMapping("/verify-email-code")
     @Operation(summary = "Verify email by code", description = "Verifies an email address using the submitted verification code.")
-    public String verifyEmailCode(@RequestBody VerifyEmailCodeRequest request) {
+    public String verifyEmailCode(@Valid @RequestBody VerifyEmailCodeRequest request) {
         return authService.verifyEmailCode(request);
     }
 
     @PostMapping("/resend-verification-code")
     @Operation(summary = "Resend verification code", description = "Sends a new email verification code.")
-    public String resendVerificationCode(@RequestBody ResendVerificationCodeRequest request) {
+    public String resendVerificationCode(@Valid @RequestBody ResendVerificationCodeRequest request) {
         return authService.resendVerificationCode(request.getEmail());
     }
 
 
     @PostMapping("/forgot-password")
     @Operation(summary = "Request password reset", description = "Sends password reset instructions for the supplied account.")
-    public String forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    public String forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request);
     }
 
     @PostMapping("/reset-password")
     @Operation(summary = "Reset password", description = "Resets the password using the submitted reset details.")
-    public String resetPassword(@RequestBody ResetPasswordRequest request) {
+    public String resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         return authService.resetPassword(request);
     }
 

@@ -5,17 +5,25 @@ import lombok.Data;
 @Data
 public class ProfileUpdateRequest {
 
-    // New user name fields
+    // User name fields
     private String firstName;
     private String lastName;
 
-    // New personal fields
+    // Personal fields
     private String gender;
     private String dateOfBirth;
 
-    // Existing profile fields
-    private String nickname;
+    // Contact fields
+    private String countryCode;
     private String phone;
+
+    // Contact privacy toggles (null = leave unchanged)
+    private Boolean showEmail;
+    private Boolean showPhone;
+    private Boolean showWhatsApp;
+
+    // Cricket profile fields
+    private String nickname;
     private String battingStyle;
     private String bowlingStyle;
     private String playerType;

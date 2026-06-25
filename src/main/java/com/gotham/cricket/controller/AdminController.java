@@ -7,6 +7,7 @@ import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.service.AdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping({"/api/admin", "/api/v1/admin"})
 @RequiredArgsConstructor
 @Tag(name = "Administration", description = "Approve members and manage user roles and account status")
 public class AdminController {
@@ -60,7 +61,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update member role", description = "Changes an approved member's role. Requires ADMIN.")
     public String updateMemberRole(@PathVariable Long id,
-                                   @RequestBody UpdateUserRoleRequest request) {
+                                   @Valid @RequestBody UpdateUserRoleRequest request) {
         return adminService.updateMemberRole(id, request.getRole());
     }
 

@@ -28,24 +28,37 @@ public class MemberService {
     public MemberResponse getMemberById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-
         return mapToMemberResponse(user);
     }
 
     private MemberResponse mapToMemberResponse(User user) {
         MemberProfile profile = memberProfileRepository.findByUser(user).orElse(null);
 
+        // If ALL three flags are false the user's profile was created before the privacy
+        // feature existed and the DB DEFAULT FALSE was applied automatically — treat that
+        // state as "never configured" and show everything.
+        boolean neverConfigured = profile != null
+                && Boolean.FALSE.equals(profile.getShowEmail())
+                && Boolean.FALSE.equals(profile.getShowPhone())
+                && Boolean.FALSE.equals(profile.getShowWhatsApp());
+
+        boolean showEmail    = profile == null || neverConfigured || !Boolean.FALSE.equals(profile.getShowEmail());
+        boolean showPhone    = profile == null || neverConfigured || !Boolean.FALSE.equals(profile.getShowPhone());
+        boolean showWhatsApp = profile == null || neverConfigured || !Boolean.FALSE.equals(profile.getShowWhatsApp());
+
         return new MemberResponse(
                 user.getId(),
                 user.getFullName(),
-                user.getEmail(),
+                showEmail ? user.getEmail() : null,
                 user.getRole(),
                 user.getStatus(),
-                profile != null ? profile.getNickname() : null,
-                profile != null ? profile.getPhone() : null,
+                profile != null ? profile.getNickname()     : null,
+                showPhone ? (profile != null ? profile.getCountryCode() : null) : null,
+                showPhone ? (profile != null ? profile.getPhone()       : null) : null,
+                showWhatsApp,
                 profile != null ? profile.getBattingStyle() : null,
                 profile != null ? profile.getBowlingStyle() : null,
-                profile != null ? profile.getPlayerType() : null,
+                profile != null ? profile.getPlayerType()   : null,
                 profile != null ? profile.getJerseyNumber() : null
         );
     }

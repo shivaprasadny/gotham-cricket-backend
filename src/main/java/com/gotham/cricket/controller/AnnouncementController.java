@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/announcements")
+@RequestMapping({"/api/announcements", "/api/v1/announcements"})
 @RequiredArgsConstructor
 @Tag(name = "Announcements", description = "Create, view, update, pin, and remove club announcements")
 public class AnnouncementController {

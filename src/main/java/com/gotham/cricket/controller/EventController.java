@@ -17,7 +17,7 @@ import java.security.Principal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/events")
+@RequestMapping({"/api/events", "/api/v1/events"})
 @RequiredArgsConstructor
 @Tag(name = "Events", description = "Manage club events and event attendance availability")
 public class EventController {

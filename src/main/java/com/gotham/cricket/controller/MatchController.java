@@ -7,6 +7,7 @@ import com.gotham.cricket.repository.MatchRepository;
 import com.gotham.cricket.service.MatchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/matches")
+@RequestMapping({"/api/matches", "/api/v1/matches"})
 @RequiredArgsConstructor
 @Tag(name = "Matches", description = "Create, view, update, and delete cricket matches")
 public class MatchController {
@@ -26,7 +27,7 @@ public class MatchController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     @Operation(summary = "Create a match", description = "Creates a match as the authenticated user. Requires ADMIN or CAPTAIN.")
-    public MatchResponse createMatch(Authentication authentication, @RequestBody MatchRequest request) {
+    public MatchResponse createMatch(Authentication authentication, @Valid @RequestBody MatchRequest request) {
         return matchService.createMatch(authentication.getName(), request);
     }
 
@@ -45,7 +46,7 @@ public class MatchController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
     @Operation(summary = "Update a match", description = "Updates an existing match. Requires ADMIN or CAPTAIN.")
-    public String updateMatch(@PathVariable Long id, @RequestBody MatchRequest request) {
+    public String updateMatch(@PathVariable Long id, @Valid @RequestBody MatchRequest request) {
         return matchService.updateMatch(id, request);
     }
 

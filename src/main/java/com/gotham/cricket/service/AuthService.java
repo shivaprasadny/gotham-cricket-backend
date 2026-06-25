@@ -99,11 +99,16 @@ public class AuthService {
         MemberProfile profile = new MemberProfile();
         profile.setUser(savedUser);
         profile.setNickname(request.getNickname());
+        profile.setCountryCode(request.getCountryCode());
         profile.setPhone(request.getPhone());
         profile.setBattingStyle(request.getBattingStyle());
         profile.setBowlingStyle(request.getBowlingStyle());
         profile.setPlayerType(request.getPlayerType());
         profile.setJerseyNumber(request.getJerseyNumber());
+        // Privacy defaults are true — set explicitly for clarity
+        profile.setShowEmail(true);
+        profile.setShowPhone(true);
+        profile.setShowWhatsApp(true);
 
         memberProfileRepository.save(profile);
 

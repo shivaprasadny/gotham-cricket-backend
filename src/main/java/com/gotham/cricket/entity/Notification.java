@@ -35,11 +35,13 @@ public class Notification {
     private Long targetId;
 
     // When notification was created
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
     }
+
+
 }

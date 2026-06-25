@@ -12,7 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/matches/{matchId}/scorecard")
+@RequestMapping({"/api/matches/{matchId}/scorecard", "/api/v1/matches/{matchId}/scorecard"})
 @RequiredArgsConstructor
 @Tag(name = "Scorecards", description = "Manual scorecard entry, publishing, reopening, and deletion")
 public class ScorecardController {

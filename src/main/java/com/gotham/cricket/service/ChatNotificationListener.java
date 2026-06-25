@@ -7,6 +7,8 @@ import com.gotham.cricket.repository.ChatRoomMemberRepository;
 import com.gotham.cricket.repository.ChatRoomRepository;
 import com.gotham.cricket.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -17,6 +19,8 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class ChatNotificationListener {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatNotificationListener.class);
 
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
@@ -68,7 +72,7 @@ public class ChatNotificationListener {
                     event.message().roomId()
             );
         } catch (RuntimeException exception) {
-            System.err.println("Chat notification failed: " + exception.getMessage());
+            log.error("Chat notification failed", exception);
         }
     }
 }
