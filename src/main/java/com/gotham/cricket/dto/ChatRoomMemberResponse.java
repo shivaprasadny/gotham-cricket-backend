@@ -4,5 +4,6 @@ public record ChatRoomMemberResponse(
         Long userId,
         String fullName,
         String nickname,
-        boolean roomAdmin
+        boolean roomAdmin,
+        String profileImageUrl
 ) {}

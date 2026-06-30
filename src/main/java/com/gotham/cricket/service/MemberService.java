@@ -19,6 +19,7 @@ public class MemberService {
 
     private final UserRepository userRepository;
     private final MemberProfileRepository memberProfileRepository;
+    private final S3Service s3Service;
 
     public List<MemberResponse> getAllApprovedMembers() {
         return userRepository.findByStatus(UserStatus.APPROVED)
@@ -48,6 +49,8 @@ public class MemberService {
         boolean showPhone    = profile == null || neverConfigured || !Boolean.FALSE.equals(profile.getShowPhone());
         boolean showWhatsApp = profile == null || neverConfigured || !Boolean.FALSE.equals(profile.getShowWhatsApp());
 
+        String imageUrl = s3Service.generateDownloadUrl(user.getProfileImageKey(), 60);
+
         return new MemberResponse(
                 user.getId(),
                 user.getFullName(),
@@ -61,7 +64,9 @@ public class MemberService {
                 profile != null ? profile.getBattingStyle() : null,
                 profile != null ? profile.getBowlingStyle() : null,
                 profile != null ? profile.getPlayerType()   : null,
-                profile != null ? profile.getJerseyNumber() : null
+                profile != null ? profile.getJerseyNumber() : null,
+                imageUrl,
+                user.getProfileImageUpdatedAt()
         );
     }
 }

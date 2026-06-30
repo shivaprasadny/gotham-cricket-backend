@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -43,4 +44,8 @@ public class ProfileResponse {
     private boolean showEmail;
     private boolean showPhone;
     private boolean showWhatsApp;
+
+    // Profile image (S3 pre-signed download URL — may be null if no image set)
+    private String profileImageUrl;
+    private LocalDateTime profileImageUpdatedAt;
 }

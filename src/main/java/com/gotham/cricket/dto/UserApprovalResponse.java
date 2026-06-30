@@ -15,4 +15,5 @@ public class UserApprovalResponse {
     private String email;
     private Role role;
     private UserStatus status;
+    private String profileImageUrl;
 }

@@ -4,6 +4,7 @@ import com.gotham.cricket.enums.Role;
 import com.gotham.cricket.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -29,4 +30,8 @@ public class MemberResponse {
     private String bowlingStyle;
     private String playerType;
     private Integer jerseyNumber;
+
+    // Profile image (S3 pre-signed download URL — may be null if no image set)
+    private String profileImageUrl;
+    private LocalDateTime profileImageUpdatedAt;
 }

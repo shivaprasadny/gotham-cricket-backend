@@ -17,6 +17,7 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final MemberProfileRepository memberProfileRepository;
+    private final S3Service s3Service;
 
     public ProfileResponse getMyProfile(String email) {
         User user = userRepository.findByEmail(email)
@@ -48,6 +49,8 @@ public class ProfileService {
         boolean showPhone    = !Boolean.FALSE.equals(profile.getShowPhone());
         boolean showWhatsApp = !Boolean.FALSE.equals(profile.getShowWhatsApp());
 
+        String imageUrl = s3Service.generateDownloadUrl(user.getProfileImageKey(), 60);
+
         return new ProfileResponse(
                 user.getId(),
                 user.getFullName(),
@@ -69,7 +72,9 @@ public class ProfileService {
                 user.getJoinedClubDate(),
                 showEmail,
                 showPhone,
-                showWhatsApp
+                showWhatsApp,
+                imageUrl,
+                user.getProfileImageUpdatedAt()
         );
     }
 

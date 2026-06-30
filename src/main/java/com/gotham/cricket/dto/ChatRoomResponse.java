@@ -11,5 +11,6 @@ public record ChatRoomResponse(
         ChatMessageResponse lastMessage,
         boolean muted,
         boolean favorite,
-        boolean frozen
+        boolean frozen,
+        String otherUserProfileImageUrl
 ) {}

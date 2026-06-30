@@ -2,8 +2,10 @@ package com.gotham.cricket.dto.statistics;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class PlayerLeaderboardEntry {
     private Integer rank;
@@ -12,4 +14,5 @@ public class PlayerLeaderboardEntry {
     private Double value;
     private Double secondaryValue;
     private Integer matchesPlayed;
+    private String profileImageUrl;
 }

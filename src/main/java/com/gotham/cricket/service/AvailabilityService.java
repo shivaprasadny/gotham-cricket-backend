@@ -24,6 +24,7 @@ public class AvailabilityService {
     private final AvailabilityRepository availabilityRepository;
     private final MatchRepository matchRepository;
     private final UserRepository userRepository;
+    private final S3Service s3Service;
 
     // ✅ MARK AVAILABILITY
     public String markAvailability(String email, AvailabilityRequest request) {
@@ -62,7 +63,8 @@ public class AvailabilityService {
                         a.getUser().getId(),
                         a.getUser().getFullName(),
                         a.getStatus(),
-                        a.getMessage()
+                        a.getMessage(),
+                        s3Service.generateDownloadUrl(a.getUser().getProfileImageKey(), 60)
                 ))
                 .toList();
     }

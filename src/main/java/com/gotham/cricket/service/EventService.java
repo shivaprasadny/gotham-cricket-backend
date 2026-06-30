@@ -26,6 +26,7 @@ public class EventService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final ChatRoomProvisioningService chatRoomProvisioningService;
+    private final S3Service s3Service;
 
     // Create a new club event
     public String createEvent(String email, CreateEventRequest request) {
@@ -151,7 +152,8 @@ public class EventService {
                         a.getUser().getId(),
                         a.getUser().getFullName(),
                         a.getStatus(),
-                        a.getMessage()
+                        a.getMessage(),
+                        s3Service.generateDownloadUrl(a.getUser().getProfileImageKey(), 60)
                 ))
                 .toList();
     }

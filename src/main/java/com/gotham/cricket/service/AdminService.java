@@ -22,6 +22,7 @@ public class AdminService {
     // Notification service for backend notifications
     private final NotificationService notificationService;
     private final ChatRoomProvisioningService chatRoomProvisioningService;
+    private final S3Service s3Service;
 
     // Get all pending members
     public List<UserApprovalResponse> getPendingMembers() {
@@ -32,7 +33,8 @@ public class AdminService {
                         user.getFullName(),
                         user.getEmail(),
                         user.getRole(),
-                        user.getStatus()
+                        user.getStatus(),
+                        s3Service.generateDownloadUrl(user.getProfileImageKey(), 60)
                 ))
                 .toList();
     }
@@ -85,7 +87,8 @@ public class AdminService {
                         user.getFullName(),
                         user.getEmail(),
                         user.getRole(),
-                        user.getStatus()
+                        user.getStatus(),
+                        s3Service.generateDownloadUrl(user.getProfileImageKey(), 60)
                 ))
                 .toList();
     }

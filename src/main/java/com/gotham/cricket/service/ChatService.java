@@ -48,6 +48,7 @@ public class ChatService {
     private final ChatRoomProvisioningService roomProvisioningService;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatPresenceService presenceService;
+    private final S3Service s3Service;
 
     @Transactional
     public ChatMessageResponse sendMessage(ChatMessageRequest request, String userEmail) {
@@ -233,6 +234,16 @@ public class ChatService {
                     );
 
                     boolean anonymous = chatRoom.getType() == ChatRoomType.ANONYMOUS;
+                    String otherUserProfileImageUrl = null;
+                    if (chatRoom.getType() == ChatRoomType.DIRECT) {
+                        otherUserProfileImageUrl = chatRoomMemberRepository
+                                .findByChatRoomId(chatRoom.getId()).stream()
+                                .filter(m -> !m.getUserId().equals(user.getId()))
+                                .findFirst()
+                                .flatMap(m -> userRepository.findById(m.getUserId()))
+                                .map(u -> s3Service.generateDownloadUrl(u.getProfileImageKey(), 60))
+                                .orElse(null);
+                    }
                     return new ChatRoomResponse(
                             chatRoom.getId(),
                             chatRoom.getType(),
@@ -244,7 +255,8 @@ public class ChatService {
                                     : toResponse(latest, senders.get(latest.getSenderId()), anonymous),
                             member.isMuted(),
                             member.isFavorite(),
-                            chatRoom.isFrozen()
+                            chatRoom.isFrozen(),
+                            otherUserProfileImageUrl
                     );
                 })
                 .toList();
@@ -278,6 +290,7 @@ public class ChatService {
         ChatRoomMember membership = requireMembership(room.getId(), currentUser.getId());
         membership.setHidden(false);
         chatRoomMemberRepository.save(membership);
+        String otherImageUrl = s3Service.generateDownloadUrl(otherUser.getProfileImageKey(), 60);
         return new ChatRoomResponse(
                 room.getId(),
                 room.getType(),
@@ -287,7 +300,8 @@ public class ChatService {
                 null,
                 membership.isMuted(),
                 membership.isFavorite(),
-                room.isFrozen()
+                room.isFrozen(),
+                otherImageUrl
         );
     }
 
@@ -473,7 +487,8 @@ public class ChatService {
                 systemMessageResponse,
                 creatorMembership.isMuted(),
                 creatorMembership.isFavorite(),
-                room.isFrozen()
+                room.isFrozen(),
+                null
         );
     }
     @Transactional
@@ -496,7 +511,8 @@ public class ChatService {
                             user.getId(),
                             user.getFullName(),
                             user.getNickname(),
-                            member.isRoomAdmin()
+                            member.isRoomAdmin(),
+                            s3Service.generateDownloadUrl(user.getProfileImageKey(), 60)
                     );
                 })
                 .toList();
@@ -530,7 +546,8 @@ public class ChatService {
                 newMember.getId(),
                 newMember.getFullName(),
                 newMember.getNickname(),
-                false
+                false,
+                s3Service.generateDownloadUrl(newMember.getProfileImageKey(), 60)
         );
     }
 
@@ -635,7 +652,8 @@ public class ChatService {
                 targetUser.getId(),
                 targetUser.getFullName(),
                 targetUser.getNickname(),
-                true
+                true,
+                s3Service.generateDownloadUrl(targetUser.getProfileImageKey(), 60)
         );
     }
 
@@ -682,7 +700,8 @@ public class ChatService {
                 targetUser.getId(),
                 targetUser.getFullName(),
                 targetUser.getNickname(),
-                false
+                false,
+                s3Service.generateDownloadUrl(targetUser.getProfileImageKey(), 60)
         );
     }
 
@@ -733,7 +752,8 @@ public class ChatService {
                 systemMessageResponse,
                 currentMembership.isMuted(),
                 currentMembership.isFavorite(),
-                saved.isFrozen()
+                saved.isFrozen(),
+                null
         );
 
 

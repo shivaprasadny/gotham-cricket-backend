@@ -98,6 +98,16 @@ public class User {
     private LocalDate joinedClubDate;
 
     // =========================
+    // PROFILE IMAGE (S3)
+    // =========================
+
+    @Column(name = "profile_image_key")
+    private String profileImageKey;
+
+    @Column(name = "profile_image_updated_at")
+    private LocalDateTime profileImageUpdatedAt;
+
+    // =========================
     // SYSTEM FIELDS
     // =========================
 

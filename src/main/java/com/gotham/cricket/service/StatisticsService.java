@@ -30,6 +30,7 @@ public class StatisticsService {
     private final UserRepository userRepository;
     private final TeamRepository teamRepository;
     private final LeagueRepository leagueRepository;
+    private final S3Service s3Service;
 
     public PlayerStatisticsResponse getPlayerStatistics(Long playerId, Long leagueId) {
         return getFilteredPlayerStatistics(playerId, StatisticsFilter.leagueOnly(leagueId));
@@ -422,7 +423,8 @@ public class StatisticsService {
                 case CATCHES, FIELDING_DISMISSALS, STUMPINGS, RUN_OUTS -> (double) agg.matches();
                 case CATCH_EFFICIENCY -> (double) agg.catchChances();
             };
-            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value, secondary, agg.matches()));
+            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value, secondary, agg.matches(),
+                    s3Service.generateDownloadUrl(agg.profileImageKey(), 60)));
         }
         if (ascending) {
             entries.sort(Comparator.comparingDouble(PlayerLeaderboardEntry::getValue));
@@ -455,7 +457,8 @@ public class StatisticsService {
         List<PlayerLeaderboardEntry> entries = new ArrayList<>();
         int rank = 1;
         for (PlayerAggregate agg : sorted) {
-            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value.apply(agg), secondary.apply(agg), agg.matches()));
+            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value.apply(agg), secondary.apply(agg), agg.matches(),
+                    s3Service.generateDownloadUrl(agg.profileImageKey(), 60)));
         }
         return entries;
     }
@@ -725,6 +728,7 @@ public class StatisticsService {
     private static final class PlayerAggregate {
         private final Long playerId;
         private final String fullName;
+        private final String profileImageKey;
         private int totalRuns;
         private int highestScore;
         private int highestScoreBalls;
@@ -752,17 +756,19 @@ public class StatisticsService {
         private int stumpings;
         private final Set<Long> matches = new HashSet<>();
 
-        private PlayerAggregate(Long playerId, String fullName) {
+        private PlayerAggregate(Long playerId, String fullName, String profileImageKey) {
             this.playerId = playerId;
             this.fullName = fullName;
+            this.profileImageKey = profileImageKey;
         }
 
         static PlayerAggregate fromUser(User user) {
-            return new PlayerAggregate(user.getId(), user.getFullName());
+            return new PlayerAggregate(user.getId(), user.getFullName(), user.getProfileImageKey());
         }
 
         Long playerId() { return playerId; }
         String fullName() { return fullName; }
+        String profileImageKey() { return profileImageKey; }
         int totalRuns() { return totalRuns; }
         int highestScore() { return highestScore; }
         int highestScoreBalls() { return highestScoreBalls; }
