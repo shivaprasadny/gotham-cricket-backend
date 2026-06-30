@@ -2,11 +2,12 @@ package com.gotham.cricket.service;
 
 import com.gotham.cricket.dto.scorecard.*;
 import com.gotham.cricket.entity.*;
+import com.gotham.cricket.enums.DismissalType;
 import com.gotham.cricket.enums.MatchOutcome;
 import com.gotham.cricket.enums.MatchStatus;
+import com.gotham.cricket.enums.OfficialResultType;
 import com.gotham.cricket.enums.ScorecardStatus;
 import com.gotham.cricket.enums.TossDecision;
-import com.gotham.cricket.enums.DismissalType;
 import com.gotham.cricket.exception.ScorecardAlreadyExistsException;
 import com.gotham.cricket.exception.ScorecardAlreadyPublishedException;
 import com.gotham.cricket.exception.ScorecardNotFoundException;
@@ -102,7 +103,10 @@ public class ScorecardService {
         if (innings.isEmpty()) {
             throw new ScorecardValidationException("At least one innings is required before publishing");
         }
-        if ((scorecard.getOutcome() == MatchOutcome.WIN || scorecard.getOutcome() == MatchOutcome.LOSS || scorecard.getOutcome() == MatchOutcome.TIE)
+        boolean isManualOverride = scorecard.getOfficialResultType() != null
+                && scorecard.getOfficialResultType() != OfficialResultType.AUTO;
+        if (!isManualOverride
+                && (scorecard.getOutcome() == MatchOutcome.WIN || scorecard.getOutcome() == MatchOutcome.LOSS || scorecard.getOutcome() == MatchOutcome.TIE)
                 && innings.size() < 2) {
             throw new ScorecardValidationException("A completed result requires two innings");
         }
@@ -207,6 +211,8 @@ public class ScorecardService {
         scorecard.setWinningMarginWickets(request.getWinningMarginWickets());
         scorecard.setPlayerOfMatch(resolveApprovedUser(request.getPlayerOfMatchId()));
         scorecard.setResultSummary(normalize(request.getResultSummary()));
+        scorecard.setOfficialResultType(request.getOfficialResultType());
+        scorecard.setOfficialResultNotes(normalize(request.getOfficialResultNotes()));
     }
 
     private void saveChildren(MatchScorecard scorecard, SaveScorecardRequest request) {
@@ -561,6 +567,11 @@ public class ScorecardService {
     }
 
     private void validateMatchOutcome(MatchScorecard scorecard, List<InningsScore> innings) {
+        boolean isManualOverride = scorecard.getOfficialResultType() != null
+                && scorecard.getOfficialResultType() != OfficialResultType.AUTO;
+        if (isManualOverride) {
+            return;
+        }
         if (scorecard.getOutcome() == MatchOutcome.TIE) {
             if (innings.size() >= 2 && !Objects.equals(innings.get(0).getRuns(), innings.get(1).getRuns())) {
                 throw new ScorecardValidationException("Tie scorecards must have equal innings scores");
@@ -607,6 +618,8 @@ public class ScorecardService {
                 scorecard.getWinningMarginRuns(),
                 scorecard.getWinningMarginWickets(),
                 resolveResultSummary(scorecard),
+                scorecard.getOfficialResultType(),
+                scorecard.getOfficialResultNotes(),
                 firstInningsTotal,
                 chaseTotal,
                 topScorer,
@@ -741,6 +754,22 @@ public class ScorecardService {
     private String resolveResultSummary(MatchScorecard scorecard) {
         if (scorecard.getResultSummary() != null && !scorecard.getResultSummary().isBlank()) {
             return scorecard.getResultSummary();
+        }
+        OfficialResultType ort = scorecard.getOfficialResultType();
+        if (ort != null && ort != OfficialResultType.AUTO) {
+            return switch (ort) {
+                case TIE -> "Match tied";
+                case DRAW -> "Match drawn";
+                case NO_RESULT -> "No result";
+                case ABANDONED -> "Match abandoned";
+                case DLS_METHOD -> "Result via DLS method";
+                case SUPER_OVER -> "Result via Super Over";
+                case WALKOVER -> "Walkover";
+                case FORFEIT -> "Result by forfeit";
+                case SPLIT_POINTS -> "Points split";
+                case CUSTOM -> "See official result";
+                default -> "Official result";
+            };
         }
         if (scorecard.getOutcome() == MatchOutcome.TIE) {
             return "Match tied";

@@ -29,6 +29,19 @@
 	<properties>
 		<java.version>21</java.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- AWS SDK v2 BOM — controls all awssdk module versions in one place -->
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>2.25.27</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
 
 <dependency>
@@ -41,10 +54,15 @@
 		</dependency>
 
 
+        <!-- AWS SDK v2: version managed by BOM in dependencyManagement above -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
-            <version>2.25.27</version>
+        </dependency>
+        <!-- Required: AWS SDK v2 needs an explicit HTTP client on the classpath -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
         </dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

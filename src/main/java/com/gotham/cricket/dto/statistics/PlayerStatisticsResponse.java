@@ -54,5 +54,9 @@ public class PlayerStatisticsResponse {
     private Integer catchChances;
     private Double catchEfficiency;
     private Integer playerOfMatchAwards;
+    // Phase 4A additions — computed from existing scorecard data, no DB migration needed
+    private Integer ducks;
+    private Integer fifers;
+    private Integer allRounderPoints;
     private List<RecentMatchPerformanceResponse> recentPerformances;
 }

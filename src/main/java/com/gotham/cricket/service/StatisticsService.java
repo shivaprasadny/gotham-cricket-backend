@@ -76,6 +76,13 @@ public class StatisticsService {
         int sixes = batting.stream().mapToInt(row -> defaultZero(row.getSixes())).sum();
         int fifties = (int) batting.stream().filter(row -> defaultZero(row.getRuns()) >= 50 && defaultZero(row.getRuns()) < 100).count();
         int hundreds = (int) batting.stream().filter(row -> defaultZero(row.getRuns()) >= 100).count();
+        // Duck: dismissed for 0 — not-outs and retired-hurt on 0 are excluded per Gotham rules
+        int ducks = (int) batting.stream()
+                .filter(row -> {
+                    DismissalType dt = DismissalTypeResolver.resolve(row);
+                    return DismissalTypeResolver.countsAsDismissal(dt) && defaultZero(row.getRuns()) == 0;
+                })
+                .count();
         Map<DismissalType, Long> dismissalBreakdown = batting.stream()
                 .map(DismissalTypeResolver::resolve)
                 .filter(DismissalTypeResolver::countsAsDismissal)
@@ -89,6 +96,11 @@ public class StatisticsService {
         int wides = bowling.stream().mapToInt(row -> defaultZero(row.getWides())).sum();
         int noBalls = bowling.stream().mapToInt(row -> defaultZero(row.getNoBalls())).sum();
         int dotBalls = bowling.stream().mapToInt(row -> defaultZero(row.getDotBalls())).sum();
+
+        // Fifer: individual bowling innings with 5+ wickets
+        int fifers = (int) bowling.stream()
+                .filter(row -> defaultZero(row.getWickets()) >= 5)
+                .count();
 
         BowlingPerformance bestBowling = bowling.stream()
                 .max(Comparator.comparingInt((BowlingPerformance row) -> defaultZero(row.getWickets()))
@@ -146,6 +158,9 @@ public class StatisticsService {
                 catchChances,
                 catchChances == 0 ? 0d : ScorecardMath.round2(catches * 100.0 / catchChances),
                 (int) awards,
+                ducks,
+                fifers,
+                totalRuns + (wickets * 20) + (catches * 5) + (stumpings * 5) + (runOuts * 5),
                 recent
         );
     }
@@ -382,6 +397,14 @@ public class StatisticsService {
             case STUMPINGS -> comparator = Comparator.comparingInt(PlayerAggregate::stumpings).reversed();
             case RUN_OUTS -> comparator = Comparator.comparingInt(PlayerAggregate::runOuts).reversed();
             case CATCH_EFFICIENCY -> comparator = Comparator.comparingDouble(PlayerAggregate::catchEfficiency).reversed();
+            // Phase 4A
+            case MOST_FOURS -> comparator = Comparator.comparingInt(PlayerAggregate::totalFours).reversed();
+            case MOST_FIFTIES -> comparator = Comparator.comparingInt(PlayerAggregate::fifties).reversed();
+            case MOST_HUNDREDS -> comparator = Comparator.comparingInt(PlayerAggregate::hundreds).reversed();
+            case MOST_DUCKS -> comparator = Comparator.comparingInt(PlayerAggregate::ducks).reversed();
+            case MOST_MATCHES -> comparator = Comparator.comparingInt(PlayerAggregate::matches).reversed();
+            case MOST_FIFERS -> comparator = Comparator.comparingInt(PlayerAggregate::fifers).reversed();
+            case BEST_ALL_ROUNDER -> comparator = Comparator.comparingInt(PlayerAggregate::allRounderPoints).reversed();
             default -> throw new ScorecardNotFoundException("Unsupported leaderboard category: " + category);
         }
 
@@ -409,19 +432,32 @@ public class StatisticsService {
                 case STUMPINGS -> (double) agg.stumpings();
                 case RUN_OUTS -> (double) agg.runOuts();
                 case CATCH_EFFICIENCY -> agg.catchEfficiency();
+                // Phase 4A
+                case MOST_FOURS -> (double) agg.totalFours();
+                case MOST_FIFTIES -> (double) agg.fifties();
+                case MOST_HUNDREDS -> (double) agg.hundreds();
+                case MOST_DUCKS -> (double) agg.ducks();
+                case MOST_MATCHES -> (double) agg.matches();
+                case MOST_FIFERS -> (double) agg.fifers();
+                case BEST_ALL_ROUNDER -> (double) agg.allRounderPoints();
             };
             Double secondary = switch (category) {
                 case RUNS -> (double) agg.totalBalls();
-                case HIGHEST_SCORE -> (double) agg.highestScoreBalls(); // balls faced in that specific innings
+                case HIGHEST_SCORE -> (double) agg.highestScoreBalls();
                 case BAT_AVG -> (double) agg.dismissals();
                 case STRIKE_RATE -> (double) agg.totalBalls();
-                case WICKETS -> agg.bowlingEconomy(); // show economy below wickets
+                case WICKETS -> agg.bowlingEconomy();
                 case BEST_BOWLING -> (double) agg.bestBowlingRuns();
                 case ECONOMY -> (double) agg.totalLegalBalls();
                 case SIXES -> (double) agg.totalBalls();
                 case POM -> (double) agg.matches();
                 case CATCHES, FIELDING_DISMISSALS, STUMPINGS, RUN_OUTS -> (double) agg.matches();
                 case CATCH_EFFICIENCY -> (double) agg.catchChances();
+                // Phase 4A — secondary shows matches for context
+                case MOST_FOURS, MOST_FIFTIES, MOST_HUNDREDS, MOST_DUCKS -> (double) agg.matches();
+                case MOST_MATCHES -> (double) agg.totalRuns();
+                case MOST_FIFERS -> (double) agg.totalWickets();
+                case BEST_ALL_ROUNDER -> (double) agg.matches();
             };
             entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value, secondary, agg.matches(),
                     s3Service.generateDownloadUrl(agg.profileImageKey(), 60)));
@@ -512,6 +548,9 @@ public class StatisticsService {
             }
             aggregate.fifties += defaultZero(batting.getRuns()) >= 50 && defaultZero(batting.getRuns()) < 100 ? 1 : 0;
             aggregate.hundreds += defaultZero(batting.getRuns()) >= 100 ? 1 : 0;
+            // Duck: dismissed for 0 — not-outs and retired-hurt on 0 are excluded
+            boolean isDuck = DismissalTypeResolver.countsAsDismissal(dismissalType) && defaultZero(batting.getRuns()) == 0;
+            aggregate.ducks += isDuck ? 1 : 0;
             aggregate.matches.add(innings.getScorecard().getId());
         }
     }
@@ -548,6 +587,8 @@ public class StatisticsService {
                         ? defaultZero(bowling.getRunsConceded())
                         : Math.min(aggregate.bestBowlingRuns, defaultZero(bowling.getRunsConceded()));
             }
+            // Fifer: 5+ wickets in this single innings
+            aggregate.fifers += defaultZero(bowling.getWickets()) >= 5 ? 1 : 0;
             aggregate.matches.add(innings.getScorecard().getId());
         }
     }
@@ -749,11 +790,13 @@ public class StatisticsService {
         private int dotBalls;
         private int bestBowlingWickets;
         private int bestBowlingRuns;
+        private int fifers;          // innings with 5+ wickets
         private int playerOfMatchAwards;
         private int catches;
         private int droppedCatches;
         private int runOuts;
         private int stumpings;
+        private int ducks;           // dismissed for 0 (not-outs on 0 excluded)
         private final Set<Long> matches = new HashSet<>();
 
         private PlayerAggregate(Long playerId, String fullName, String profileImageKey) {
@@ -794,6 +837,8 @@ public class StatisticsService {
         int droppedCatches() { return droppedCatches; }
         int runOuts() { return runOuts; }
         int stumpings() { return stumpings; }
+        int ducks() { return ducks; }
+        int fifers() { return fifers; }
         int fieldingDismissals() { return catches + runOuts + stumpings; }
         int catchChances() { return catches + droppedCatches; }
         int matches() { return matches.size(); }
@@ -802,6 +847,10 @@ public class StatisticsService {
         double bowlingEconomy() { return ScorecardMath.economy(totalRunsConceded, totalLegalBalls); }
         double catchEfficiency() {
             return catchChances() == 0 ? 0d : ScorecardMath.round2(catches * 100.0 / catchChances());
+        }
+        // All-rounder score: keep formula isolated so it can change in Phase 4B
+        int allRounderPoints() {
+            return totalRuns + (totalWickets * 20) + (catches * 5) + (stumpings * 5) + (runOuts * 5);
         }
     }
 }

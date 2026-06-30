@@ -1,6 +1,7 @@
 package com.gotham.cricket.dto.scorecard;
 
 import com.gotham.cricket.enums.MatchOutcome;
+import com.gotham.cricket.enums.OfficialResultType;
 import com.gotham.cricket.enums.ScorecardStatus;
 import com.gotham.cricket.enums.TossDecision;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,8 @@ public class ScorecardResponse {
     private Integer winningMarginRuns;
     private Integer winningMarginWickets;
     private String resultSummary;
+    private OfficialResultType officialResultType;
+    private String officialResultNotes;
     private Integer firstInningsTotal;
     private Integer chaseTotal;
     private String topScorer;

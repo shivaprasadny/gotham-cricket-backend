@@ -1,6 +1,7 @@
 package com.gotham.cricket.entity;
 
 import com.gotham.cricket.enums.MatchOutcome;
+import com.gotham.cricket.enums.OfficialResultType;
 import com.gotham.cricket.enums.ScorecardStatus;
 import com.gotham.cricket.enums.TossDecision;
 import jakarta.persistence.*;
@@ -66,6 +67,13 @@ public class MatchScorecard {
 
     @Column(name = "result_summary", length = 2000)
     private String resultSummary;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "official_result_type", length = 50)
+    private OfficialResultType officialResultType;
+
+    @Column(name = "official_result_notes", columnDefinition = "TEXT")
+    private String officialResultNotes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_of_match_id")

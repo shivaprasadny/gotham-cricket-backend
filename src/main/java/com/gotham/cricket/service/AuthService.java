@@ -42,6 +42,7 @@ public class AuthService {
     private final EmailService emailService;
     private final RateLimitService rateLimitService;
     private final PasswordResetCodeRepository passwordResetCodeRepository;
+    private final S3Service s3Service;
 
     // =========================
     // REGISTER USER
@@ -240,6 +241,12 @@ public class AuthService {
         // Generate JWT token for authenticated session
         String token = jwtService.generateToken(user.getEmail());
 
+        String profileImageUrl = null;
+        if (user.getProfileImageKey() != null) {
+            try { profileImageUrl = s3Service.generateDownloadUrl(user.getProfileImageKey(), 60); }
+            catch (Exception ignored) {}
+        }
+
         return new LoginResponse(
                 user.getId(),
                 user.getFullName(),
@@ -247,7 +254,8 @@ public class AuthService {
                 user.getRole(),
                 user.getStatus(),
                 token,
-                "Login successful"
+                "Login successful",
+                profileImageUrl
         );
     }
 

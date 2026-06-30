@@ -1,6 +1,7 @@
 package com.gotham.cricket.dto.scorecard;
 
 import com.gotham.cricket.enums.MatchOutcome;
+import com.gotham.cricket.enums.OfficialResultType;
 import com.gotham.cricket.enums.TossDecision;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -24,6 +25,11 @@ public class SaveScorecardRequest {
 
     @Size(max = 2000)
     private String resultSummary;
+
+    private OfficialResultType officialResultType;
+
+    @Size(max = 2000)
+    private String officialResultNotes;
 
     private Long playerOfMatchId;
 

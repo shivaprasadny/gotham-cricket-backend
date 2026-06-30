@@ -15,4 +15,5 @@ public class LoginResponse {
     private UserStatus status;
     private String token;
     private String message;
+    private String profileImageUrl;
 }
