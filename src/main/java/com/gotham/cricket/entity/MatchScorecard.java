@@ -90,6 +90,11 @@ public class MatchScorecard {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
+    // Fix 6: tracks whether the publish notification has already been sent so that
+    // re-publishing after a reopen does NOT fire a second notification.
+    @Column(name = "notification_sent", nullable = false)
+    private boolean notificationSent = false;
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();

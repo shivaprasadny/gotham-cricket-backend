@@ -35,6 +35,7 @@ public class MatchService {
     private final ChatRoomProvisioningService chatRoomProvisioningService;
 
     // Create match using flexible team/opponent structure
+    @Transactional
     public MatchResponse createMatch(String email, MatchRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
@@ -154,6 +155,7 @@ public class MatchService {
     }
 
     // Return all matches with automatic old match completion
+    @Transactional
     public List<MatchResponse> getAllMatches(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
@@ -206,6 +208,7 @@ public class MatchService {
     }
 
     // Get one match
+    @Transactional
     public MatchResponse getMatchById(Long id, String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
@@ -243,6 +246,7 @@ public class MatchService {
     }
 
     // Update existing match
+    @Transactional
     public String updateMatch(Long id, MatchRequest request) {
         Match match = matchRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Match not found"));

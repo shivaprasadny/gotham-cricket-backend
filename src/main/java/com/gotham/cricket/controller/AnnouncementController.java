@@ -44,8 +44,9 @@ public class AnnouncementController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    @Operation(summary = "Delete an announcement", description = "Deletes an announcement. Requires ADMIN or CAPTAIN.")
+    // Fix 5: only ADMIN may delete announcements
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete an announcement", description = "Deletes an announcement. Requires ADMIN.")
     public String deleteAnnouncement(@PathVariable Long id) {
         return announcementService.deleteAnnouncement(id);
     }

@@ -25,13 +25,11 @@ public class ChatWebSocketController {
     public void sendMessage(@Valid ChatMessageRequest request, Principal principal) {
         ChatMessageResponse response = chatService.sendMessage(request, principal.getName());
 
-        messagingTemplate.convertAndSend(
-                "/topic/chat/room/" + request.roomId(),
-                response
+        messagingTemplate.convertAndSend("/topic/chat/room/" + request.roomId(), response);
 
+        chatService.getRoomMemberEmails(request.roomId()).forEach(email ->
+                messagingTemplate.convertAndSendToUser(email, "/queue/chat/rooms", response)
         );
-
-        messagingTemplate.convertAndSend("/topic/chat/rooms", response);
     }
 
     @MessageExceptionHandler

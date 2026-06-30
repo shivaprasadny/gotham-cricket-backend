@@ -365,7 +365,9 @@ public class StatisticsService {
             case HIGHEST_SCORE -> comparator = Comparator.comparingInt(PlayerAggregate::highestScore).reversed();
             case BAT_AVG -> comparator = Comparator.comparingDouble(PlayerAggregate::battingAverage).reversed();
             case STRIKE_RATE -> comparator = Comparator.comparingDouble(PlayerAggregate::battingStrikeRate).reversed();
-            case WICKETS -> comparator = Comparator.comparingInt(PlayerAggregate::totalWickets).reversed();
+            // Tiebreaker: fewer runs conceded per over (lower economy) ranks higher
+            case WICKETS -> comparator = Comparator.comparingInt(PlayerAggregate::totalWickets).reversed()
+                    .thenComparingDouble(PlayerAggregate::bowlingEconomy);
             case BEST_BOWLING -> comparator = Comparator.comparingInt(PlayerAggregate::bestBowlingWickets).reversed()
                     .thenComparingInt(PlayerAggregate::bestBowlingRuns);
             case ECONOMY -> {
@@ -409,10 +411,10 @@ public class StatisticsService {
             };
             Double secondary = switch (category) {
                 case RUNS -> (double) agg.totalBalls();
-                case HIGHEST_SCORE -> (double) agg.totalBalls();
+                case HIGHEST_SCORE -> (double) agg.highestScoreBalls(); // balls faced in that specific innings
                 case BAT_AVG -> (double) agg.dismissals();
                 case STRIKE_RATE -> (double) agg.totalBalls();
-                case WICKETS -> (double) agg.totalRunsConceded();
+                case WICKETS -> agg.bowlingEconomy(); // show economy below wickets
                 case BEST_BOWLING -> (double) agg.bestBowlingRuns();
                 case ECONOMY -> (double) agg.totalLegalBalls();
                 case SIXES -> (double) agg.totalBalls();
@@ -420,7 +422,7 @@ public class StatisticsService {
                 case CATCHES, FIELDING_DISMISSALS, STUMPINGS, RUN_OUTS -> (double) agg.matches();
                 case CATCH_EFFICIENCY -> (double) agg.catchChances();
             };
-            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value, secondary));
+            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value, secondary, agg.matches()));
         }
         if (ascending) {
             entries.sort(Comparator.comparingDouble(PlayerLeaderboardEntry::getValue));
@@ -453,7 +455,7 @@ public class StatisticsService {
         List<PlayerLeaderboardEntry> entries = new ArrayList<>();
         int rank = 1;
         for (PlayerAggregate agg : sorted) {
-            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value.apply(agg), secondary.apply(agg)));
+            entries.add(new PlayerLeaderboardEntry(rank++, agg.playerId(), agg.fullName(), value.apply(agg), secondary.apply(agg), agg.matches()));
         }
         return entries;
     }
@@ -500,7 +502,11 @@ public class StatisticsService {
             aggregate.dismissals += DismissalTypeResolver.countsAsDismissal(dismissalType) ? 1 : 0;
             aggregate.notOuts += dismissalType != DismissalType.DID_NOT_BAT
                     && !DismissalTypeResolver.countsAsDismissal(dismissalType) ? 1 : 0;
-            aggregate.highestScore = Math.max(aggregate.highestScore, defaultZero(batting.getRuns()));
+            int inningsRuns = defaultZero(batting.getRuns());
+            if (inningsRuns > aggregate.highestScore) {
+                aggregate.highestScore = inningsRuns;
+                aggregate.highestScoreBalls = defaultZero(batting.getBallsFaced());
+            }
             aggregate.fifties += defaultZero(batting.getRuns()) >= 50 && defaultZero(batting.getRuns()) < 100 ? 1 : 0;
             aggregate.hundreds += defaultZero(batting.getRuns()) >= 100 ? 1 : 0;
             aggregate.matches.add(innings.getScorecard().getId());
@@ -721,6 +727,7 @@ public class StatisticsService {
         private final String fullName;
         private int totalRuns;
         private int highestScore;
+        private int highestScoreBalls;
         private int innings;
         private int notOuts;
         private int dismissals;
@@ -758,6 +765,7 @@ public class StatisticsService {
         String fullName() { return fullName; }
         int totalRuns() { return totalRuns; }
         int highestScore() { return highestScore; }
+        int highestScoreBalls() { return highestScoreBalls; }
         int innings() { return innings; }
         int notOuts() { return notOuts; }
         int dismissals() { return dismissals; }

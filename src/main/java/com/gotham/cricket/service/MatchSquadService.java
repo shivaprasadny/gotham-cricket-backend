@@ -18,6 +18,7 @@ import java.util.List;
 
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class MatchSquadService {
 

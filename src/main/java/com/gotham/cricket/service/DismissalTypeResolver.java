@@ -28,7 +28,8 @@ final class DismissalTypeResolver {
     static boolean countsAsDismissal(DismissalType type) {
         return switch (type) {
             case BOWLED, CAUGHT, LBW, RUN_OUT, STUMPED, HIT_WICKET, OTHER -> true;
-            case NOT_OUT, RETIRED_HURT, DID_NOT_BAT -> false;
+            // RETIRED_OUT does not count as a dismissal for batting average purposes
+            case NOT_OUT, RETIRED_HURT, RETIRED_OUT, DID_NOT_BAT -> false;
         };
     }
 

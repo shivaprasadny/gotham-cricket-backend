@@ -23,6 +23,9 @@ public class ChatSecurityService {
         if (destination.equals("/user/queue/errors")) {
             return;
         }
+        if (destination.equals("/user/queue/chat/rooms")) {
+            return;
+        }
         if (!destination.startsWith(ROOM_TOPIC_PREFIX)) {
             throw new AccessDeniedException("Subscription destination is not allowed");
         }

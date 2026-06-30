@@ -11,4 +11,5 @@ public class PlayerLeaderboardEntry {
     private String fullName;
     private Double value;
     private Double secondaryValue;
+    private Integer matchesPlayed;
 }

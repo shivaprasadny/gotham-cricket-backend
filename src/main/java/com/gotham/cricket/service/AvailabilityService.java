@@ -10,12 +10,14 @@ import com.gotham.cricket.enums.AvailabilityStatus;
 import com.gotham.cricket.repository.AvailabilityRepository;
 import com.gotham.cricket.repository.MatchRepository;
 import com.gotham.cricket.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class AvailabilityService {
 

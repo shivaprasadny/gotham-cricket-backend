@@ -51,8 +51,9 @@ public class MatchController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    @Operation(summary = "Delete a match", description = "Deletes a match. Requires ADMIN or CAPTAIN.")
+    // Fix 5: only ADMIN may delete; Captain is not permitted to delete
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a match", description = "Deletes a match. Requires ADMIN.")
     public String deleteMatch(@PathVariable Long id) {
         return matchService.deleteMatch(id);
     }

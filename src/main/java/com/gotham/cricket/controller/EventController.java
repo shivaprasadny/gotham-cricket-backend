@@ -51,8 +51,9 @@ public class EventController {
     }
 
     @DeleteMapping("/{eventId}")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    @Operation(summary = "Delete an event", description = "Deletes an event. Requires ADMIN or CAPTAIN.")
+    // Fix 5: only ADMIN may delete events
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete an event", description = "Deletes an event. Requires ADMIN.")
     public String deleteEvent(@PathVariable Long eventId) {
         return eventService.deleteEvent(eventId);
     }

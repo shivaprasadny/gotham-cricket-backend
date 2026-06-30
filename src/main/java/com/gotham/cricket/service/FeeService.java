@@ -36,6 +36,7 @@ import com.gotham.cricket.repository.MatchSquadRepository;
  * - fetch user-specific fee data
  */
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class FeeService {
 

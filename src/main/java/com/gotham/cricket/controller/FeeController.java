@@ -120,10 +120,10 @@ public class FeeController {
         return feeService.updateFee(feeDefinitionId, request);
     }
 
-    // Admin/captain deletes one fee
+    // Fix 5: only ADMIN may delete fees
     @DeleteMapping("/{feeDefinitionId}")
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    @Operation(summary = "Delete a fee", description = "Deletes a fee definition when allowed. Requires ADMIN or CAPTAIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a fee", description = "Deletes a fee definition when allowed. Requires ADMIN.")
     public String deleteFee(@PathVariable Long feeDefinitionId) {
         return feeService.deleteFee(feeDefinitionId);
     }

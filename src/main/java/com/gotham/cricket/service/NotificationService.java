@@ -7,6 +7,7 @@ import com.gotham.cricket.entity.User;
 import com.gotham.cricket.repository.NotificationRecipientRepository;
 import com.gotham.cricket.repository.NotificationRepository;
 import com.gotham.cricket.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.gotham.cricket.entity.PushToken;
@@ -15,6 +16,7 @@ import com.gotham.cricket.repository.PushTokenRepository;
 import java.util.*;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class NotificationService {
 

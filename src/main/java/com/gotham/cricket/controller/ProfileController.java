@@ -22,6 +22,8 @@ public class ProfileController {
     @Operation(summary = "Get my profile", description = "Returns the profile for the authenticated user.")
     public ProfileResponse getMyProfile(Authentication authentication) {
         String email = authentication.getName();
+
+        
         return profileService.getMyProfile(email);
     }
 

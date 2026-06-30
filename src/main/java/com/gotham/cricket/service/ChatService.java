@@ -34,6 +34,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class ChatService {
 
@@ -852,5 +853,13 @@ public class ChatService {
         requireMembership(roomId, user.getId());
         room.setFrozen(frozen);
         chatRoomRepository.save(room);
+    }
+
+    public List<String> getRoomMemberEmails(Long roomId) {
+        List<Long> userIds = chatRoomMemberRepository.findByChatRoomId(roomId)
+                .stream()
+                .map(ChatRoomMember::getUserId)
+                .collect(Collectors.toList());
+        return userRepository.findEmailsByIdIn(userIds);
     }
 }

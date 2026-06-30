@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import com.gotham.cricket.enums.Role;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class ChatRoomProvisioningService {
 

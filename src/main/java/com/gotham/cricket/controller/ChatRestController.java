@@ -61,7 +61,9 @@ public class ChatRestController {
                 authentication.getName()
         );
         messagingTemplate.convertAndSend("/topic/chat/room/" + roomId, response);
-        messagingTemplate.convertAndSend("/topic/chat/rooms", response);
+        chatService.getRoomMemberEmails(roomId).forEach(email ->
+                messagingTemplate.convertAndSendToUser(email, "/queue/chat/rooms", response)
+        );
         return response;
     }
 

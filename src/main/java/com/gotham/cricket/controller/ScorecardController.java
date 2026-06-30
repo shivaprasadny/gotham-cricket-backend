@@ -59,8 +59,9 @@ public class ScorecardController {
     }
 
     @DeleteMapping
-    @PreAuthorize("hasAnyRole('ADMIN','CAPTAIN')")
-    @Operation(summary = "Delete draft scorecard", description = "Deletes only draft scorecards. Requires ADMIN or CAPTAIN.")
+    // Fix 5: only ADMIN may delete scorecard drafts
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete draft scorecard", description = "Deletes only draft scorecards. Requires ADMIN.")
     public String deleteDraft(@PathVariable Long matchId, Authentication authentication) {
         return scorecardService.deleteDraft(matchId, authentication.getName());
     }

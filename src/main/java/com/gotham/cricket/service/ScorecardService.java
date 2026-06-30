@@ -24,6 +24,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class ScorecardService {
 
@@ -117,19 +118,28 @@ public class ScorecardService {
             matchRepository.save(match);
         }
 
+        // Fix 6: only send the push notification on the FIRST publish; re-publishing
+        // after a reopen must not fire a duplicate notification.
+        boolean shouldNotify = !scorecard.isNotificationSent();
+        if (shouldNotify) {
+            scorecard.setNotificationSent(true);
+        }
+
         MatchScorecard saved = matchScorecardRepository.save(scorecard);
 
-        try {
-            notificationService.createForAllApprovedUsers(
-                    "Scorecard Published",
-                    saved.getMatch().getHomeTeam().getTeamName() + " scorecard is now available",
-                    "SCORECARD",
-                    "Scorecard",
-                    saved.getMatch().getId()
-            );
-        } catch (Exception ex) {
-            // Notification delivery must not roll back the scorecard publish.
-            log.warn("Scorecard publish notification failed for match {}", matchId, ex);
+        if (shouldNotify) {
+            try {
+                notificationService.createForAllApprovedUsers(
+                        "Scorecard Published",
+                        saved.getMatch().getHomeTeam().getTeamName() + " scorecard is now available",
+                        "SCORECARD",
+                        "Scorecard",
+                        saved.getMatch().getId()
+                );
+            } catch (Exception ex) {
+                // Notification delivery must not roll back the scorecard publish.
+                log.warn("Scorecard publish notification failed for match {}", matchId, ex);
+            }
         }
 
         return buildResponse(saved, authenticatedEmail, true);
